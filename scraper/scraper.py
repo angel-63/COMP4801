@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
 from asyncio.log import logger
-from database import db
-from datetime import datetime
+from db.database import db
 import json
 import random
 import time
-from typing import List, Optional
+from typing import Optional
 import tls_client
-import urllib
 
-from models.job import JobBase, ScraperInput, Site
+from db.models.job import JobBase, ScraperInput, Site
 
 
 class Scraper(ABC):
     def __init__(self, 
                  site: Site, 
-                 proxies: List[str],
+                 proxies: list[str],
                  ca_cert: str | None = None
     ):
         self.site = site
@@ -64,14 +62,14 @@ class Scraper(ABC):
         logger.debug(f"Using proxy: {proxy}")
         
     @abstractmethod
-    def scrape(self, scraperInput: ScraperInput) -> List[JobBase]:
+    def scrape(self, scraperInput: ScraperInput) -> list[JobBase]:
         pass
     
     def get_with_retry(self, url: str, headers: Optional[dict], params: Optional[dict], retries: int = 3) -> Optional[tls_client.response]:
         headers = headers or self.headers
         timeout=30
         for attempt in range(retries):
-            logger.info(f"Scraping: {url} with params: {params}")
+            # logger.info(f"Scraping: {url} with params: {params}")
             try:
                 response = self.session.get(url, 
                                             headers=headers, 
@@ -118,12 +116,12 @@ class Scraper(ABC):
         '''
 
     
-    def save_to_csv(self, jobs: List[JobBase], filename: str):
+    def save_to_csv(self, jobs: list[JobBase], filename: str):
         df = pd.DataFrame([job.__dict__ for job in jobs])
         df.to_csv(filename, index=False)
         logger.info(f"Saved {len(jobs)} jobs to {filename}")
     
-    def save_to_json(self, jobs: List[JobBase], filename: str):
+    def save_to_json(self, jobs: list[JobBase], filename: str):
         data = [job.__dict__ for job in jobs]
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, default=str)

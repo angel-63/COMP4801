@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from io import BytesIO
 import logging
-import math
 import random
 import time
 from datetime import datetime
@@ -12,10 +11,10 @@ from urllib.parse import unquote
 from bson import Binary
 import regex as re
 import requests
-from models.job import ExperienceLevel, JobBase, JobMode, EmploymentType, ScraperInput, Site
-from scraper import Scraper
+from db.models.job import ExperienceLevel, JobBase, JobMode, EmploymentType, ScraperInput, Site
+from scraper.scraper import Scraper
 from bs4 import BeautifulSoup
-from tagging import extract_skills, generate_dedup_key, normalise_industry, normalise_job_unction
+from scraper.tagging import extract_skills, generate_dedup_key, normalise_industry, normalise_job_unction
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,7 @@ def download_logo_as_binary(url: str, max_size=(180, 180), format="PNG") -> Bina
     
 def get_job_description(soup: BeautifulSoup) -> str:
     description = soup.find("div", class_=re.compile(r"show-more-less-html__markup")).decode_contents()
-    logger.info(f"type of description: {type(description)}\t description scraped: {description[:100]}")
+    # logger.info(f"type of description: {type(description)}\t description scraped: {description[:100]}")
     return description
 
 class LinkedInScraper(Scraper):
@@ -203,7 +202,7 @@ class LinkedInScraper(Scraper):
             soup = BeautifulSoup(response.text, "html.parser")
             job_cards = soup.find_all("div", class_=re.compile(r"base-search-card"))
             if len(job_cards) == 0:
-                logger.info(f"number of job cards: {len(job_cards)}")
+                # logger.info(f"number of job cards: {len(job_cards)}")
                 break
                 # return JobBase(jobs=job_list)
 
@@ -213,16 +212,16 @@ class LinkedInScraper(Scraper):
                 # logger.info(f"Found {link} full-link anchor on this page")
                 if link and link.has_attr("href"):
                     href = link["href"]
-                if href:
-                    job_url = href.split("?")[0]
-                    job_id = job_url.split("-")[-1]
+                    if href:
+                        job_url = href.split("?")[0]
+                        job_id = job_url.split("-")[-1]
 
-                    if job_id in seen_ids:
-                        continue
-                    
-                    seen_ids.add(job_id)
-                    # logger.info(f"job url: {job_url}")
-                    # logger.info(f"seen_ids {seen_ids}")
+                        if job_id in seen_ids:
+                            continue
+                        
+                        seen_ids.add(job_id)
+                        # logger.info(f"job url: {job_url}")
+                        # logger.info(f"seen_ids {seen_ids}")
 
             if continue_search():
                 time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
@@ -248,7 +247,7 @@ class LinkedInScraper(Scraper):
         # , full_descr: bool = True
     ) -> JobBase:
         res = self.get_with_retry(f"{self.base_url}/jobs/view/{job_id}", headers=None, params=None)
-        logger.info("trying to get job details")
+        # logger.info("trying to get job details")
         
         if res is None:
             logger.warning(f"get_with_retry returned None for {job_id} — no response received")
@@ -267,7 +266,7 @@ class LinkedInScraper(Scraper):
             '''
             
         try:
-            logger.info(f"Detail page status: {res.status_code}")
+            # logger.info(f"Detail page status: {res.status_code}")
 
             if res.status_code != 200:
                 logger.warning(f"Non-200 status {res.status_code} for {job_id}")
@@ -302,7 +301,7 @@ class LinkedInScraper(Scraper):
             company_name = company_attr.get_text(strip=True)
             # company_url = company_attr["href"]
             company_logo_url = soup.find("img", class_=re.compile(r"artdeco-entity-image")).get('data-delayed-url')#.replace("https://","")
-            logger.info(f"company logo url: {company_logo_url}")
+            # logger.info(f"company logo url: {company_logo_url}")
             company_logo_bin = download_logo_as_binary(company_logo_url)
 
             datetime_tag = (
@@ -335,7 +334,7 @@ class LinkedInScraper(Scraper):
 
             job_descp = get_job_description(soup=soup)
 
-            logger.info(f"Successfully parsed job {job_id}: {title}\n)")# descp: {job_descp}") # url:{parse_application_url(soup=soup)}\n
+            # logger.info(f"Successfully parsed job {job_id}: {title}\n)")# descp: {job_descp}") # url:{parse_application_url(soup=soup)}\n
             
             # generate dedup key for checking b4 saving to db
             dedupKey = generate_dedup_key(title, job_descp)
@@ -363,7 +362,7 @@ class LinkedInScraper(Scraper):
                 # emails = extract_emails_from_text(description),
                 # company_url=company_url,
                 skill_tags = extract_skills(job_descp),
-                # role_category = extract_role_category(title),
+                role_category = scraper_input.role_category,
                 dedup_key = dedupKey
             )
         except Exception as e:

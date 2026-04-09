@@ -1,7 +1,110 @@
-import hashlib
-import re
+from datetime import datetime
+from enum import Enum
+from typing import Optional
+from zoneinfo import ZoneInfo
+from bson import Binary, ObjectId
+from pydantic import BaseModel, ConfigDict, Field
 
 
+class EmploymentType(Enum):
+    FULL_TIME = "fulltime"
+    PART_TIME = ("parttime")
+    CONTRACT = ("contract", "contractor")
+    TEMPORARY = ("temporary")
+    INTERNSHIP = ("internship", "summer")
+    OTHER = ("other")
+    
+    @classmethod
+    def from_linkedin(cls, value: str) -> "EmploymentType":
+        mapping = {
+            "Full-time":   cls.FULL_TIME,
+            "Part-time":   cls.PART_TIME,
+            "Contract":    cls.CONTRACT,
+            "Internship":  cls.INTERNSHIP,
+            "Other": cls.OTHER,
+        }
+        return mapping.get(value.strip(), cls.OTHER)
+
+class JobMode(Enum):
+    ONSITE = ("on-site")
+    REMOTE = ("remote")
+    HYBRID = ("hybrid")
+    
+class ExperienceLevel(Enum):
+    INTERNSHIP = ("internship")
+    ENTRY = ("entry level")
+    ASSOCIATE = ("associate")
+    MID_SENIOR = ("mid-senior level")
+    DIRECTOR = ("director")
+    OTHER = ("other")
+    
+    @classmethod
+    def from_linkedin(cls, value: str) -> "EmploymentType":
+        mapping = {
+            "Internship":   cls.INTERNSHIP,
+            "Entry level":   cls.ENTRY,
+            "Associate":    cls.ASSOCIATE,
+            "Mid-Senior level":  cls.MID_SENIOR,
+            "Director": cls.DIRECTOR,
+        }
+        return mapping.get(value.strip(), cls.OTHER)
+    
+class Site(Enum):
+    LINKEDIN = "linkedin"
+    INDEED = "indeed"
+    GLASSDOOR = "glassdoor"    
+    
+class JobBase(BaseModel):
+    # job_id: ObjectId = Field(alias="_id")
+    job_title: str
+    company_name: str
+    company_logo: Optional[Binary] = None
+    company_industry: Optional[list[str]] = Field(default_factory=list)
+    location: Optional[str] = Field(None, examples=["Hong Kong", "Remote (HK)"])
+    experience_level: ExperienceLevel
+    job_function: list[str] = Field(default_factory=list)
+    employment_type: EmploymentType
+    job_mode: JobMode
+    job_description: str
+    min_salary: Optional[int] = None
+    max_salary: Optional[int] = None
+    posted_at: datetime
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
+    application_url: str
+    original_source_site: Site 
+    original_post_id: Optional[str] = None  # for getting the original source url
+    skill_tags: list[str] = Field(default_factory=list)
+    role_category: Optional[str] = None
+    dedup_key: str
+    
+    model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+        arbitrary_types_allowed=True  # for ObjectId
+    )
+
+class ScraperInput(BaseModel):
+    site_type: list[Site]
+    search_term: str | None = None
+    # google_search_term: str | None = None
+
+    location: str = "Hong Kong" # optional
+    geoId: int = 103291313 # Hong Kong SAR
+    employment_type: Optional[EmploymentType] = None
+    job_mode: JobMode
+    experience_lv: Optional[ExperienceLevel] = None
+    role_category: Optional[str] = None
+    is_easy_apply: bool
+    # description_format: DescriptionFormat | None = DescriptionFormat.MARKDOWN
+
+    request_timeout: int = 60
+    offset: int | None = 0
+    results_wanted: int = 1000
+    hours_old: int = 24
+    
 INDUSTIRES_RULES = {
     'Venture Capital & Private Equity': [
         r'\bventure\s+capital\b',
@@ -217,7 +320,87 @@ JOB_FUNCTION_RULES = {
     "Support": [r'\bsupport\b', r'\bcustomer\s+service\b'],
 }
 
-ROLE_CATEGORIES = {"Accountant"}
+ROLES_DICTIONARY = {
+    "Accounting": [
+        "Accountant", "Tax Specialist", "Payroll Specialist", "Auditor"
+    ],
+    "Administrative": [
+        "Admin Officer", "Data Entry Specialist", "Clerk", "Administrator"
+    ],
+    "Arts and Design": [
+        "Artist", "Designer", "Host", "Actor", "Architect"
+    ],
+    "Business Development": [
+        "Managing Director", "Business Development Manager", "Merger and Acquisitions Specialist", "Chief Executive Officer", "Chief Marketing Officer"
+    ],
+    "Community and Social Services": [
+        "Social Worker", "Counsellor", "Psychologist", "Volunteer"
+    ],
+    "Consulting": [
+        "Consultant", "Sales Consultant", "CRM Consultant"
+    ],
+    "Education": [
+        "Professor", "Primary School Teacher", "Secondary School Teacher", "Teaching Assistant", "Instructor", 
+        "Coach"
+    ],
+    "Engineering": [
+        "Aeronautical Engineer", "Software Developer", "Petroleum Drilling Engineer", "Software Engineer", "Coding Engineer"
+    ],
+    "Entrepreneurship": [
+        "Founder", "Board Member", "Partner", "Owner"
+    ],
+    "Finance": [
+        "Corporate Finance Specialist", "Investment Manager", "Risk Manager", "Insurance Specialist", "Fund Manager", "Commercial Banker", "Investor", "Loan Officer", "Compliance Officer"
+    ],
+    "Healthcare Services": [
+        "Doctor", "Nurse", "Dentist", "Healthcare Technician", "Orthopaedist", "Healthcare Assistant", "Healthcare Administrator"
+    ],
+    "Human Resources": [
+        "Recruiter", "Staffing Specialist", "Compensation and Benefits Administrator", "Employee Wellness Manager", "Organisational Development Specialist", "Internal Corporate Trainer"
+    ],
+    "Information Technology": [
+        "Chief Information Officer", "Database Developer", "IT Auditor", "SAP Consultant", "Telecommunications Manager"
+    ],
+    "Legal": [
+        "Attorney", "Paralegal", "Judiciary"
+    ],
+    "Marketing": [
+        "Advertising Specialist", "Branding Specialist", "Customer Insights Specialist", "Marketing Analytics Specialist"
+    ],
+    "Media and Communication": [
+        "Technical Writer", "Journalist", "Mass Media Professional", "Website Manager"
+    ],
+    "Military and Protective Services": [
+        "Firefighter", "Police Officer", "Airport Security Officer", "Investigator"
+    ],
+    "Operations": [
+        "Site Operations Manager", "Marketing Operations Specialist", "IT Operations Manager", "IT Infrastructure Manager", "Infrastructure Maintenance Specialist"
+    ],
+    "Product Management": [
+        "Product Manager"
+    ],
+    "Program and Project Management": [
+        "Project Manager", "Program Manager", "Project Administrator", "Business Process Manager", "Agile Consultant"
+    ],
+    "Purchasing": [
+        "Procurement Specialist", "Purchasing Specialist"
+    ],
+    "Quality Assurance": [
+        "Business Analyst", "Healthcare QA Specialist", "Tester", "Software Tester", "Penetration Testing Engineer"
+    ],
+    "Real Estate": [
+        "Real Estate Broker", "Real Estate Asset Manager", "Property Manager"
+    ],
+    "Research": [
+        "Chemist", "Healthcare Researcher", "Research Analyst", "Product Manager", "Data Scientist"
+    ],
+    "Sales": [
+        "Enterprise Sales Specialist", "Field Sales Specialist"
+    ],
+    "Support": [
+        "Customer Service Specialist", "Call Centre Manager", "Support Representative"
+    ]
+}
 
 SKILLS_RULES = {
     "Accounting": {
@@ -243,11 +426,11 @@ SKILLS_RULES = {
     },
     "Community and Social Services": {
         "case management", "crisis intervention", "counseling techniques", "mental health first aid",
-        "social work assessment", "community outreach", "referral coordination", "cpr", "first aid",
+        "social work assessment", "community outreach", "referral coordination", r'\bcpr\b', "first aid",
         "client records management", "medicaid/medicare", "advocacy"
     },
     "Consulting": {
-        "data analysis", "process improvement", "lean", "six sigma", "change management",
+        "data analysis", "process improvement", r'\blean\b', "six sigma", "change management",
         "business process modeling", "stakeholder management", "strategy consulting",
         "financial analysis", "presentation skills", "power bi", "tableau"
     },
@@ -257,7 +440,7 @@ SKILLS_RULES = {
         "student assessment", "differentiated instruction", "special education"
     },
     "Engineering": {
-        "cad", "autocad", "solidworks", "catia", "matlab", "python", "c++", "java",
+        r'\bcad\b', "autocad", "solidworks", "catia", "matlab", "python", "c++", "java",
         "simulation software", "finite element analysis", "circuit design", "embedded systems",
         "robotics", "plc programming", "mechanical design", "process engineering"
     },
@@ -274,7 +457,7 @@ SKILLS_RULES = {
     "Healthcare Services": {
         "electronic health records", "epic", "cerner", "medical terminology", "patient assessment",
         "diagnostic procedures", "ehr", "vital signs", "phlebotomy", "medication administration",
-        "cpr", "acls", "icd-10", "cpt coding", "clinical documentation"
+        r'\bcpr\b', r'\bacls\b', "icd-10", "cpt coding", "clinical documentation"
     },
     "Human Resources": {
         "hr information systems", "workday", "sap hr", "recruitment", "talent acquisition",
@@ -283,7 +466,7 @@ SKILLS_RULES = {
     },
     "Information Technology": {
         "python", "java", "javascript", "SQL", "AWS", "azure", "gcp", "linux", "unix", 
-        "networking", "cybersecurity", "docker", "kubernetes", "CI/CD", "git", "agile",
+        "networking", "cybersecurity", "docker", "kubernetes", "CI/CD", r'\bgit\b', "agile",
         "scrum", "itil", "devops", "database administration", "cloud computing",
         "machine learning", "deep learning", "tensorflow", "pytorch", "windows server",
         "scikit-learn", "keras", "nlp", "computer vision", "data science", "pandas",
@@ -295,22 +478,22 @@ SKILLS_RULES = {
         "document review", "case management software", "negotiation"
     },
     "Marketing": {
-        "google analytics", "SEO", "SEM", "social media marketing", "content management systems",
+        "google analytics", r'\bseo\b', r'\bsem\b', "social media marketing", "content management systems",
         "wordpress", "email marketing", "marketing automation", "hubspot", "market research",
-        "crm", "data analysis", "adobe analytics", "a/b testing"
+        r'\bcrm\b', "data analysis", "adobe analytics", "a/b testing"
     },
     "Media and Communication": {
         "adobe creative suite", "premiere pro", "final cut pro", "pro tools", "wordpress",
         "content management", "copywriting", "journalism", "storytelling", "social media strategy",
-        "SEO", "video production", "audio editing"
+        r'\bSEO\b', "video production", "audio editing"
     },
     "Military and Protective Services": {
-        "firearms training", "emergency response", "cpr", "first aid", "physical fitness",
+        "firearms training", "emergency response", r'\bcpr\b', "first aid", "physical fitness",
         "crisis management", "investigation techniques", "surveillance", "security protocols",
         "risk assessment", "defensive tactics"
     },
     "Operations": {
-        "supply chain management", "logistics", "inventory management", "erp systems", "sap",
+        "supply chain management", "logistics", "inventory management", "erp systems", r'\bsap\b',
         "oracle", "lean manufacturing", "six sigma", "process optimization", "demand planning",
         "warehouse management", "data analysis", "power bi"
     },
@@ -340,7 +523,7 @@ SKILLS_RULES = {
         "crm", "real estate investment"
     },
     "Research": {
-        "research methodology", "statistical analysis", "spss", "r", "python", "sas", "data collection",
+        "research methodology", "statistical analysis", "spss", r'\br\b', "python", "sas", "data collection",
         "experimental design", "literature review", "grant writing", "laboratory techniques",
         "clinical research", "qualitative analysis", "quantitative analysis"
     },
@@ -352,59 +535,6 @@ SKILLS_RULES = {
     "Support": {
         "help desk software", "zendesk", "freshdesk", "service now", "ticketing system",
         "remote support", "troubleshooting", "technical support", "customer service",
-        "live chat", "email support", "phone support", "itil"
+        "live chat", "email support", "phone support", r'\bitil\b'
     }
 }
-
-def remove_html_tags(text: str) -> str:
-    return re .sub(r'<.*?>', '', text.lower())
-
-def extract_role_category(title: str) -> str:
-    text = title.strip().lower()
-    for key, category in ROLE_CATEGORIES.items():
-        if key in text:
-            return category
-    return "Other"
-
-def generate_dedup_key(title: str, description: str) -> str:
-    t = title.strip().lower()
-    d = remove_html_tags(description)
-    text = f"{t}|{d}"
-    return hashlib.sha256(text.encode()).hexdigest()
-
-INDUSTIRES = [(cateogry, pattern) for cateogry, patterns in INDUSTIRES_RULES.items() for pattern in patterns]
-JOB_FUNCTION = [(cateogry, pattern) for cateogry, patterns in JOB_FUNCTION_RULES.items() for pattern in patterns]
-SKILLS = [(category, skill) for category, keywords in SKILLS_RULES.items() for skill in keywords]
-
-def normalise_industry(industry: str) -> set[str]:
-    tags = set()
-    text = industry.lower()
-    for category, pattern in INDUSTIRES:
-        if re.search(pattern, text):
-            tags.add(category)
-    return tags if tags else tags.add("Other")
-
-def normalise_job_unction(function: str) -> set[str]:
-    tags = set()
-    text = function.lower()
-    for category, pattern in JOB_FUNCTION:
-        if re.search(pattern, text):
-            tags.add(category)
-    return tags if tags else tags.add("Other")
-
-def extract_skills(description: str) -> set[str]:
-    skills = set()
-    text = remove_html_tags(description)
-    for category, skill in SKILLS:
-        # if re.search(r'\b' + re.escape(skill) + r'\b', text):
-        if skill in text:
-            skills.add(skill)
-    return skills
-
-# def extract_skill_tags(description: str) -> list[str]:
-#     text = remove_html_tags(description)
-#     found = []
-#     for skill in SKILLS:
-#         if skill in text:
-#             found.append(skill.title())
-#     return sorted(set(found))
