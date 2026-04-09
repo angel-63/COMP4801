@@ -24,6 +24,17 @@ class EmploymentType(Enum):
             "Other": cls.OTHER,
         }
         return mapping.get(value.strip(), cls.OTHER)
+    
+    @classmethod
+    def from_Jobsdb(cls, value: str) -> "EmploymentType":
+        mapping = {
+            "Full time":   cls.FULL_TIME,
+            "Part time":   cls.PART_TIME,
+            "Contract/Temp":    cls.CONTRACT,
+            "Internship":  cls.INTERNSHIP,
+            "Other": cls.OTHER,
+        }
+        return mapping.get(value.strip(), cls.OTHER)
 
 class JobMode(Enum):
     ONSITE = ("on-site")
@@ -51,6 +62,7 @@ class ExperienceLevel(Enum):
     
 class Site(Enum):
     LINKEDIN = "linkedin"
+    JOBSDB = "jobsdb"
     INDEED = "indeed"
     GLASSDOOR = "glassdoor"    
     
@@ -86,8 +98,14 @@ class JobBase(BaseModel):
         arbitrary_types_allowed=True  # for ObjectId
     )
 
+class JobJobsdb(JobBase):
+    experience_level: Optional[ExperienceLevel] = None
+
+# class JobLinkedIn(JobBase):
+#     experience_level: ExperienceLevel
+
 class ScraperInput(BaseModel):
-    site_type: list[Site]
+    site_type: Site
     search_term: str | None = None
     # google_search_term: str | None = None
 
@@ -299,7 +317,7 @@ JOB_FUNCTION_RULES = {
     "Engineering": [r'\bengineering\b', r'\bengineer\b'],
     "Entrepreneurship": [r'\bentrepreneurship\b'],
     "Finance": [r'\bfinance\b', r'\bfinancial\b'],
-    # "General Business": [r'\bgeneral\s+business\b', r'\bbusiness\b(?!\s+development)'],
+    "General Business": [r'\bgeneral\b'],
     "Healthcare Services": [r'\bhealthcare\b', r'\bmedical\b'],
     "Human Resources": [r'\bhuman\s+resources\b', r'\bhr\b'],
     "Information Technology": [r'\binformation\s+technology\b', r'\bit\b', r'\bsoftware\b', r'\bprogramming\b'],
@@ -308,7 +326,7 @@ JOB_FUNCTION_RULES = {
     "Manufacturing": [r'\bmanufacturing\b', r'\bproduction\b'],
     "Marketing": [r'\bmarketing\b'],
     "Media and Communication": [r'\bmedia\b', r'\bcommunication\b', r'\bpublic\s+relations\b', r'\bwriting\b', r'\bediting\b'],
-    "Military and Protective Services": [r'\bmilitary\b', r'\bprotective\b', r'\bsecurity\b'],
+    "Military and Protective Services": [r'\bmilitary\b', r'\bprotective\b', r'\bsecurity\b', r'\bgovernment\b'],
     "Operations": [r'\boperations\b', r'\bsupply\s+chain\b', r'\blogistics\b'],
     "Product Management": [r'\bproduct\s+management\b'],
     "Program and Project Management": [r'\bproject\s+management\b', r'\bprogram\s+management\b'],
@@ -317,7 +335,7 @@ JOB_FUNCTION_RULES = {
     "Real Estate": [r'\breal\s+estate\b'],
     "Research": [r'\bresearch\b', r'\bscience\b'],
     "Sales": [r'\bsales\b'],
-    "Support": [r'\bsupport\b', r'\bcustomer\s+service\b'],
+    "Support": [r'\bsupport\b', r'\bcustomer\s+service\b', r'\bcall\s+centre\b'],
 }
 
 ROLES_DICTIONARY = {
