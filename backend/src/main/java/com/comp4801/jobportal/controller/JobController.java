@@ -8,10 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -38,7 +35,7 @@ public class JobController {
 
             @RequestParam(value="page", defaultValue = "0") int page,
             @RequestParam(value="size", defaultValue = "20") int size,
-            @RequestParam(value="sortBy", defaultValue = "createdAt") String sortBy,
+            @RequestParam(value="sortBy", defaultValue = "postedAt") String sortBy,
             @RequestParam(value = "direction", defaultValue = "desc") String direction
     ) {
 
@@ -51,6 +48,12 @@ public class JobController {
         );
 
         return ResponseEntity.ok(new PagedModel<>(jobs));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Job> getJobById(@PathVariable String id) {
+        Job job = jobService.getJobDetailsById(id);
+        return ResponseEntity.ok(job);
     }
 
 //    @GetMapping("/recommendations")

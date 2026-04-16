@@ -4,10 +4,10 @@ import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -39,7 +39,7 @@ public class JobService {
         Instant now = Instant.now();
         Instant cutOffTime = (hours != null) ? now.minus(Duration.ofHours(hours)) : null;
 
-        return jobRepository.searchJobsByFilters(keyword,
+        return jobRepository.findJobsByFilters(keyword,
                 employmentTypes,
                 jobModes,
                 experienceLevels,
@@ -54,6 +54,10 @@ public class JobService {
                 );
     }
 
+    public Job getJobDetailsById(String id) {
+        return jobRepository.findJobDetailsById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: " + id));
+    }
 
     /*
     public List<MatchResult> recommendJobsForUser(String userId) {

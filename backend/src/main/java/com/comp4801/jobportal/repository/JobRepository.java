@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -21,7 +22,8 @@ public class JobRepository{
 
     private final MongoTemplate mongoTemplate;
 
-    public Page<Job> searchJobsByFilters(String keyword,
+    // return list of jobs with basic info only
+    public Page<Job> findJobsByFilters(String keyword,
                                          List<String> employmentTypes,
                                          List<String> jobModes,
                                          List<String> experienceLevels,
@@ -34,7 +36,6 @@ public class JobRepository{
                                          String sortBy,
                                          String direction
                                 ) {
-
         Query query = new Query();
         List<Criteria> criteriaList = new ArrayList<>();
 
@@ -76,23 +77,59 @@ public class JobRepository{
         }
 
         // sort before pagination
-        Sort.Direction sortDirection = "desc".equalsIgnoreCase(direction)
-                ? Sort.Direction.DESC
-                : Sort.Direction.ASC;
-
-        Sort sort = Sort.by(sortDirection, convertCamelCaseToSnakeCase(sortBy));
+        Sort sort = Sort.by(getSortDirection(direction), sortBy);
         query.with(sort);
 
         // pagination
+        return queryJobs(query, pageable);
+    }
+
+    // for user to get info of list of saved jobs
+    public Page<Job> findJobsById(List<String> ids, Pageable pageable,String sortBy, String direction){
+        Query query = new Query();
+
+        if (ids != null && !ids.isEmpty()) {
+            query.addCriteria(Criteria.where("id").in(ids));
+        }
+
+        // sort before pagination
+        Sort sort = Sort.by(getSortDirection(direction), sortBy);
+        query.with(sort);
+
+        // pagination
+        return queryJobs(query, pageable);
+    }
+
+    // return full job details e.g., job description
+    public Optional<Job> findJobDetailsById(String id) {
+        Job job = mongoTemplate.findById(id, Job.class);
+        return Optional.ofNullable(job);
+    }
+
+    private Sort.Direction getSortDirection(String direction){
+        return "desc".equalsIgnoreCase(direction)
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+    }
+
+    private PageImpl<Job> queryJobs(Query query, Pageable pageable){
+        // pagination
         long total = mongoTemplate.count(query, Job.class);
+
+        query.fields().include("companyName")
+                .include("companyLogo")
+                .include("jobTitle")
+                .include("employmentType")
+                .include("jobMode")
+                .include("companyIndustry")
+                .include("jobFunction")
+                .include("skillTags")
+                .include("createdAt")
+                .include("expiresAt");
 
         query.with(pageable);
         List<Job> jobs = mongoTemplate.find(query, Job.class);
         return new PageImpl<>(jobs, pageable, total);
-    }
-
-    private String convertCamelCaseToSnakeCase(String camelCase) {
-        return camelCase.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
     }
 }
 
