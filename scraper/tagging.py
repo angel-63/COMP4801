@@ -31,8 +31,8 @@ def normalise_industry(industry: str) -> set[str]:
     for category, pattern in INDUSTIRES:
         if re.search(pattern, text):
             tags.add(category)
-        if not tags:
-            tags.add("Other")
+    if not tags:
+        tags.add("Other")
     return tags
 
 def normalise_job_unction(function: str) -> set[str]:
@@ -41,8 +41,8 @@ def normalise_job_unction(function: str) -> set[str]:
     for category, pattern in JOB_FUNCTION:
         if re.search(pattern, text):
             tags.add(category)
-        if not tags:
-            tags.add("Other")
+    if not tags:
+        tags.add("Other")
     return tags
 
 def extract_skills(description: str) -> set[str]:

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -23,17 +24,34 @@ public class JobService {
 //    private final RecommendationClient recommendationClient;
 //    private final ProfileService profileService; // allowed to read profile data
 
-    public Page<Job> getAllJobs(Pageable pageable) {
-        return jobRepository.findAll(pageable);
-    }
+    public Page<Job> searchJobs(String keyword,
+                                List<String> employmentTypes,
+                                List<String> jobModes,
+                                List<String> experienceLevels,
+                                List<String> industries,
+                                String company,
+                                List<String> jobFunctions,
+                                Integer hours,
+                                Pageable pageable,
+                                String sortBy,
+                                String direction) {
 
-    public Page<Job> getFilteredJobs(String keyword, List<String> employmentTypes, List<String> jobModes,
-                                     List<String> experienceLevels, List<String> industries, String company,
-                                    List<String> jobFunctions) {
-        Pageable pageable = PageRequest.of(0, 100)
-                .withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
-        return jobRepository.findByFilters(keyword, employmentTypes, jobModes,
-                experienceLevels, industries, company, jobFunctions, Instant.now(), pageable);
+        Instant now = Instant.now();
+        Instant cutOffTime = (hours != null) ? now.minus(Duration.ofHours(hours)) : null;
+
+        return jobRepository.searchJobsByFilters(keyword,
+                employmentTypes,
+                jobModes,
+                experienceLevels,
+                industries,
+                company,
+                jobFunctions,
+                now,
+                cutOffTime,
+                pageable,
+                sortBy,
+                direction
+                );
     }
 
 

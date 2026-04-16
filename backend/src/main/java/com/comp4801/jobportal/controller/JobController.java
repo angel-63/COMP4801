@@ -4,8 +4,9 @@ import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.services.JobService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,24 +26,31 @@ public class JobController {
     }
 
     @GetMapping()
-    public ResponseEntity<Page<Job>> getAllJobs(@PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(jobService.getAllJobs(pageable));
-    }
-    @GetMapping("/filter")
-    public ResponseEntity<Page<Job>> filterJobs(
+    public ResponseEntity<PagedModel<Job>> searchJobs(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) List<String> employmentType,
             @RequestParam(required = false) List<String> jobMode,
             @RequestParam(required = false) List<String> experienceLevel,
             @RequestParam(required = false) List<String> industry,
             @RequestParam(required = false) String company,
-            @RequestParam(required = false) List<String> jobFunction
-//            @PageableDefault(size = 20) Pageable pageable,
+            @RequestParam(required = false) List<String> jobFunction,
+            @RequestParam(required = false) Integer hours,
+
+            @RequestParam(value="page", defaultValue = "0") int page,
+            @RequestParam(value="size", defaultValue = "20") int size,
+            @RequestParam(value="sortBy", defaultValue = "createdAt") String sortBy,
+            @RequestParam(value = "direction", defaultValue = "desc") String direction
     ) {
 
-        Page<Job> jobs = jobService.getFilteredJobs(keyword, employmentType, jobMode,
-                experienceLevel, industry, company, jobFunction);
-        return ResponseEntity.ok(jobs);
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Job> jobs = jobService.searchJobs(
+                keyword, employmentType, jobMode, experienceLevel,
+                industry, company, jobFunction, hours, pageable,
+                sortBy, direction
+        );
+
+        return ResponseEntity.ok(new PagedModel<>(jobs));
     }
 
 //    @GetMapping("/recommendations")

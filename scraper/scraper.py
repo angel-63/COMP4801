@@ -65,7 +65,7 @@ class Scraper(ABC):
     def scrape(self, scraperInput: ScraperInput) -> list[JobBase]:
         pass
     
-    def get_with_retry(self, url: str, headers: Optional[dict], params: Optional[dict], retries: int = 3) -> Optional[tls_client.response]:
+    def get_with_retry(self, url: str, headers: Optional[dict] = None, params: Optional[dict] = None, retries: int = 3) -> Optional[tls_client.response]:
         headers = headers or self.headers
         timeout=30
         for attempt in range(retries):
