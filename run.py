@@ -16,8 +16,9 @@ if __name__ == "__main__":
         # pyrhon run.py scraper --module both --hr 24
         from scraper.main import main
         main(args=extra_args)
-        
+    
+    # for local testing        
     elif args.module == "recommendation":
-        # python run.py recommendation --port 8080 --reload
+        # python run.py recommendation --port 8001 --reload
         from recommender.main import main
         main(args=extra_args)
