@@ -7,7 +7,8 @@ from bson import ObjectId
 
 class UserProfile(BaseModel):
     email: EmailStr
-    full_name: str
+    fistName: str
+    lastName: str
     password: str  # Will be hashed
     phone: str
     location: Optional[str] = None
@@ -33,7 +34,7 @@ class Resume(BaseModel):
     user_id: ObjectId
     filename: str = Field(default="My Resume")
     summary: str
-    education: list[Education] = Field(default_factory=list)
+    education: list[str] = Field(default_factory=list)
     experiences: list[ResumeExperience] = Field(default_factory=list)
     projects: list[ResumeProject] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
@@ -54,7 +55,7 @@ class Preference(BaseModel):
     role_category: list[str] = Field(default_factory=list)
     
 class Link(BaseModel):
-    site: job.Site
+    site: str
     url: str
     
 class Education(BaseModel):
@@ -69,10 +70,11 @@ class Experience(BaseModel):
     position: str
     start_date: datetime
     end_date: Optional[datetime] = None
+    location: str
 
 class Skill(BaseModel):
     skill: str
-    proficiency: str  # Beginner, Intermediate, Expert
+    proficiency: Optional[str]=None  # Beginner, Intermediate, Expert
 
 class Language(BaseModel):
     language: str
@@ -80,8 +82,10 @@ class Language(BaseModel):
 
 class Project(BaseModel):
     project_name: str
-    project_description: str
-    technologies: list[str] = Field(default_factory=list)
+    project_owner: str
+    start_date: datetime
+    end_date: Optional[datetime] = None
+    location: str
 
 class Certificate(BaseModel):
     certificate_name: str
