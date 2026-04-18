@@ -32,4 +32,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run scraper for site ${{ matrix.site }}
-        run: python run.py scraper --module both --site ${{ matrix.site }}
+        run: python run.py scraper --mode both --site ${{ matrix.site }}
