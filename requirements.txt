@@ -11,5 +11,4 @@ uvicorn==0.32.0
 numpy==1.26.4
 scikit-learn==1.5.2
 sentence-transformers==3.1.1
-fastapi==0.104.1
 uvicorn[standard]==0.24.0
