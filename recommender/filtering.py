@@ -29,7 +29,7 @@ def apply_filters(user: User, jobs: list[JobBase]) -> list[JobBase]:
         if (job.expires_at >= datetime.now()) and\
             bool(set(preference.job_function) & set(job.job_function)) and\
             (job.employment_type in preference.employment_type) and \
-            (job.experience_level in preference.experience_level) and\
+            (job.experience_level in preference.experience_level if job.experience_level is not None else True) and\
             (job_id not in disliked) and\
             (job_id not in applied):
                 print("job.employment_type:", repr(job.employment_type), type(job.employment_type))

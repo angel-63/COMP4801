@@ -28,6 +28,12 @@ def main(args=None):
         default="linkedin",
         help="source to scrape"
     )
+    parser.add_argument(
+        "--proxies",
+        type=str,
+        default="",
+        help="str of proxies separated by comma"
+    )
     '''
     parser.add_argument(
         "--roles", "-r",
@@ -50,7 +56,8 @@ def main(args=None):
     db.cleanup_old_jobs()
     print("MongoDB ready")
 
-
+    proxies = [p.strip() for p in args.proxies.split(",") if p.strip()] if args.proxies else []
+    
     '''
     if args.roles:
         roles = args.roles
@@ -74,7 +81,7 @@ def main(args=None):
             scraper_class = cls._scrapers.get(site)
             if not scraper_class:
                 raise ValueError(f"No scraper implemented yet for site: {site.value}")
-            return scraper_class(site=site)   # most scrapers accept site in constructor
+            return scraper_class(site=site, proxies=proxies)   # most scrapers accept site in constructor
 
     ####################
     def scrape_condition(role):

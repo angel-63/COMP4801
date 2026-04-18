@@ -28,6 +28,12 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+          
+      - name: Fetch list of working proxies
+        run: |
+          curl -s https://raw.githubusercontent.com/Thordata/awesome-free-proxy-list/main/proxies/all.txt > proxies.txt
 
       - name: Run scraper for site ${{ matrix.site }}
-        run: python run.py scraper --mode both --site ${{ matrix.site }}
+        run: |
+          PROXIES=$(curl -s https://raw.githubusercontent.com/Thordata/awesome-free-proxy-list/main/proxies/all.txt | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$' | head -n 20 | paste -sd,)
+          python run.py scraper --mode both --site ${{ matrix.site }} --proxies "$PROXIE

@@ -79,7 +79,7 @@ class Scraper(ABC):
                 if response.status_code == 200:
                     self.successful_count += 1
                     return response
-                if response.status_code == 429:
+                if response.status_code in [403, 429]:
                     wait_time = (2 ** attempt) + random.uniform(0, 1)
                     logger.warning(f"Rate limited. Waiting {wait_time:.2f} seconds...")
                     time.sleep(wait_time)

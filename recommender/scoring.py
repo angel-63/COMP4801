@@ -17,7 +17,12 @@ def relevance_score(user: User, job: JobBase) -> float:
     job_roles = {job.role_category} if job.role_category else set()
     role_match = len(user_roles & job_roles)
     
-    return skill_match * 10 + role_match * 5 + function_match * 2 + industry_match
+    exp_lv_match = exp_lv_match = int(
+        job.experience_level is not None 
+        and job.experience_level in (user.preference_tags.experience_level or [])
+    )
+    
+    return skill_match * 10 + role_match * 5 + function_match * 2 + industry_match + exp_lv_match
 
 # Stage 3
 model = SentenceTransformer('all-MiniLM-L6-v2') 

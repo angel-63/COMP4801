@@ -91,7 +91,7 @@ class JobBase(BaseModel):
     
     model_config = ConfigDict(
         populate_by_name=True,
-        use_enum_values=False,
+        use_enum_values=True,
         extra="forbid",
         str_strip_whitespace=True,
         arbitrary_types_allowed=True
@@ -102,6 +102,16 @@ class JobJobsdb(JobBase):
     
 class Job(JobBase):
     id: ObjectId = Field(alias="_id")
+    experience_level: Optional[ExperienceLevel] = None
+    
+    model_config = ConfigDict(
+        populate_by_name=False,
+        use_enum_values=False,
+        extra="forbid",
+        str_strip_whitespace=True,
+        arbitrary_types_allowed=True
+    )
+
 
 # class JobLinkedIn(JobBase):
 #     experience_level: ExperienceLevel
