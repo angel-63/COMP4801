@@ -56,7 +56,7 @@ def main(args=None):
     db.cleanup_old_jobs()
     print("MongoDB ready")
 
-    proxies = [p.strip() for p in args.proxies.split(",") if p.strip()] if args.proxies else []
+    proxies = [f"http://{p.strip()}" for p in args.proxies.split(",") if p.strip()] if args.proxies else []
     
     '''
     if args.roles:

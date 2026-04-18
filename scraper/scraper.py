@@ -19,7 +19,22 @@ class Scraper(ABC):
         self.site = site
         self.proxies = proxies
         self.current_proxy_index = 0
-        self.session = tls_client.Session(
+        self.headers = {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+            "accept-encoding": "gzip, deflate, br",
+            "accept-language": "en-US,en;q=0.5",
+        }
+        self.create_session()
+        
+        self.successful_count = 0
+        self.request_count = 0
+        
+        if self.proxies:
+            self.rotate_proxy()
+        
+    def create_session(self, proxy: Optional[str]=None):
+        session = tls_client.Session(
             client_identifier="chrome112",
             random_tls_extension_order=True,
             header_order=[
@@ -40,25 +55,16 @@ class Scraper(ABC):
             ],
             cert_compression_algo="brotli",
         )
-        self.headers = {
-            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
-            "accept-encoding": "gzip, deflate, br",
-            "accept-language": "en-US,en;q=0.5",
-        }
-        self.session.headers.update(self.headers)
-        
-        self.successful_count = 0
-        self.request_count = 0
-        
-        if self.proxies:
-            self.rotate_proxy()
-        
+        if proxy:
+            session.proxies = {"http": proxy, "https": proxy}
+        session.headers.update(self.headers)
+        return session
+    
     def rotate_proxy(self):
         if not self.proxies:
             return
         proxy = self.proxies[self.current_proxy_index]
-        self.session.proxies = {"http": proxy, "https": proxy}
+        self.session = self.create_session(proxy)
         self.current_proxy_index = (self.current_proxy_index + 1) % len(self.proxies)
         logger.debug(f"Using proxy: {proxy}")
         
@@ -93,6 +99,8 @@ class Scraper(ABC):
             except Exception as e:
                 logger.error(f"Attempt {attempt + 1} failed: {e}")
                 if attempt < retries - 1:
+                    if self.proxies:
+                        self.rotate_proxy()
                     time.sleep(2 ** attempt)
             self.request_count +=1
         
