@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: backend
+    runtime: image
+    repo: https://github.com/angel-63/COMP4801
+    branch: main
+    rootDir: backend
+    buildCommand: ./mvnw clean package
+    startCommand: java -jar target/*.jar
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+        fromSecret: MONGODB_URI
+      - key: MONGODB_NAME
+        value: job_db 
+
+  - type: web
+    name: recommender
+    runtime: python
+    repo: https://github.com/angel-63/COMP4801
+    branch: main
+    rootDir: recommender
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd recommender && uvicorn main:app --host 0.0.0.0 --port 8001
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+        fromSecret: MONGODB_URI
+      - key: MONGODB_NAME
+        value: job_db 

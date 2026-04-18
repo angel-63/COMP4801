@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args, extra_args = parser.parse_known_args()
 
     if args.module == "scraper":
-        # pyrhon run.py scraper --module both --hr 24
+        # pyrhon run.py scraper --mode both --hr 24
         from scraper.main import main
         main(args=extra_args)
     
