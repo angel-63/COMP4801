@@ -1,31 +1,39 @@
 import argparse
+from bson import Binary
+from db.models.job import Job
 from recommender.filtering import apply_filters
 from recommender.scoring import *
 import uvicorn
 
 from fastapi import FastAPI, HTTPException
 from db.database import db
-from db.models.matching import MatchRequest, MatchResult
+from db.models.matching import MatchResult
 
 
 app = FastAPI(title="Job Recommendation Engine")
 
-@app.on_event("start")
+@app.on_event("startup")
 async def startup_event():
     if not db.connect():
         raise RuntimeError("Failed to connect to MongoDB")
     db.cleanup_old_jobs()
     print("MongoDB ready")
 
-@app.on_event("close")
+@app.on_event("shutdown")
 async def shutdown_event():
     db.close()
     print("MongoDB connection closed")
 
 @app.post("/match", response_model=list[MatchResult])
-async def match_jobs(request: MatchRequest):
-    user = request.user
-    jobs = request.jobs
+async def match_jobs(request: User):
+    user = request
+    jobs_cursor = db.get_collection("job").find()
+    jobs = []
+    for doc in jobs_cursor:
+        # Convert company_logo from bytes to Binary if present
+        if "company_logo" in doc and isinstance(doc["company_logo"], bytes):
+            doc["company_logo"] = Binary(doc["company_logo"])
+        jobs.append(Job(**doc))
 
     # Stage 1: Filter
     filtered = apply_filters(user, jobs)
@@ -42,11 +50,10 @@ async def match_jobs(request: MatchRequest):
         # collab_score = ibcf(user.user_id, job.job_id)
 
         # Combine: adjust weights as needed
-        combined = (tag_score * 0.6) + (sem_score * 0.4) 
-        # + (collab_score * 0.1)
+        combined = compute_hybrid_score(user, job, tag_score, sem_score)
 
         results.append(MatchResult(
-            job_id=job.job_id,
+            job_id=str(job.id),
             relevance_score=tag_score,
             semantic_score=sem_score,
             # ibcf_score=collab_score,

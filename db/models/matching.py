@@ -1,12 +1,7 @@
 from typing import Optional
 
-from db.models.job import JobBase
-from db.models.user import UserProfile
+from db.models.user import User
 from pydantic import BaseModel
-
-class MatchRequest(BaseModel):
-    user: UserProfile
-    jobs: list[JobBase]
 
 class MatchResult(BaseModel):
     job_id: str

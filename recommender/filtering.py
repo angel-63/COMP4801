@@ -1,8 +1,9 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from db.database import db
 from db.models.job import JobBase
-from db.models.user import UserProfile
+from db.models.user import User
 
 
 # Stage 1
@@ -10,19 +11,30 @@ from db.models.user import UserProfile
 # not showing jobs user disliked before
 def get_disliked_jobs(user_id: str) -> set[str]:
     interactions_collection = db.get_collection('interactions')
-    result = interactions_collection.find({'_id': user_id, 'action': 'explicit_no'})
-    return set(doc['job_id'] for doc in result)
+    result = interactions_collection.find({'user_id': user_id, 'action': 'explicit_no'})
+    return set(doc['_id'] for doc in result)
 
-def apply_filters(user: UserProfile, jobs: list[JobBase]) -> list[JobBase]:
+def get_applied_jobs(user_id: str) -> set[str]:
+    interactions_collection = db.get_collection('interactions')
+    result = interactions_collection.find({'user_id': user_id, 'action': 'applied'})
+    return set(doc['_id'] for doc in result)
+
+def apply_filters(user: User, jobs: list[JobBase]) -> list[JobBase]:
     preference = user.preference_tags
     filtered = []
+    disliked = get_disliked_jobs(user.id)
+    applied = get_applied_jobs(user.id)
     for job in jobs:
-        if (job.expires_at < datetime.utcnow()) or\
-            bool(set(preference.job_function) & set(job.job_function)) or \
-            bool(set(preference.employment_type) & set(job.employment_type)) or \
-            bool(set(preference.experience_level) & set(job.experience_level)) or\
-            (job._id in get_disliked_jobs(user._id)) or\
-            (job._id in get_disliked_jobs(user._id)):
-            continue
-        filtered.append(job)
+        job_id = job.id
+        if (job.expires_at >= datetime.now()) and\
+            bool(set(preference.job_function) & set(job.job_function)) and\
+            (job.employment_type in preference.employment_type) and \
+            (job.experience_level in preference.experience_level) and\
+            (job_id not in disliked) and\
+            (job_id not in applied):
+                print("job.employment_type:", repr(job.employment_type), type(job.employment_type))
+                print("preference.employment_type:", [repr(x) for x in preference.employment_type])
+                print("job.expires_at >= now:", job.expires_at >= datetime.now())
+                print("job_function intersection:", bool(set(preference.job_function) & set(job.job_function)))
+                filtered.append(job)
     return filtered

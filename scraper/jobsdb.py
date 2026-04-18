@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from io import BytesIO
 import logging
-import random
-import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from PIL import Image
 from urllib.parse import unquote
 
@@ -272,7 +271,7 @@ class JobsdbScraper(Scraper):
                             'w': timedelta(weeks=int(number))
                             }
                 try:
-                    date_posted = datetime.now() - unit_map[unit]
+                    date_posted = datetime.now(tz=ZoneInfo('Asia/Hong_Kong')) - unit_map[unit]
                 except:
                     date_posted = None
             

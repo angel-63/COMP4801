@@ -4,7 +4,7 @@ from io import BytesIO
 import logging
 import random
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image
 from urllib.parse import unquote
 
@@ -354,7 +354,7 @@ class LinkedInScraper(Scraper):
                 min_salary= salary_min,
                 max_salary= salary_max,
                 posted_at=date_posted,
-                expires_at=date_posted,
+                expires_at=date_posted+timedelta(days=7),
                 application_url= f"{self.base_url}/jobs/view/{job_id}",
                 # application_url= f"{self.base_url}/jobs/view/{job_id}" if scraper_input.is_easy_apply else parse_application_url(soup=soup),
                 original_source_site= Site.LINKEDIN,

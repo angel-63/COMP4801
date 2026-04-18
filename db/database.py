@@ -1,5 +1,6 @@
 # database.py  (or wherever you keep this)
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
@@ -50,10 +51,10 @@ class MongoDB:
     
     def cleanup_old_jobs(self):
         """Remove jobs that have expired (older than expires_at)"""
-        cutoff_date = datetime.utcnow()
+        cutoff_date = datetime.now(tz=ZoneInfo('Asia/Hong_Kong'))
         result = self.db.jobs.update_many(
             {"expires_at": {"$lt": cutoff_date}, "is_active": True},
-            {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+            {"$set": {"is_active": False, "updated_at": datetime.now(tz=ZoneInfo('Asia/Hong_Kong'))}}
         )
         logger.info(f"Deactivated {result.modified_count} expired jobs")
         return result.modified_count

@@ -9,9 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field
 class EmploymentType(Enum):
     FULL_TIME = "fulltime"
     PART_TIME = ("parttime")
-    CONTRACT = ("contract", "contractor")
+    CONTRACT = ("contract")
     TEMPORARY = ("temporary")
-    INTERNSHIP = ("internship", "summer")
+    INTERNSHIP = ("internship")
     OTHER = ("other")
     
     @classmethod
@@ -67,7 +67,6 @@ class Site(Enum):
     GLASSDOOR = "glassdoor"    
     
 class JobBase(BaseModel):
-    # job_id: ObjectId = Field(alias="_id")
     job_title: str
     company_name: str
     company_logo: Optional[Binary] = None
@@ -92,14 +91,17 @@ class JobBase(BaseModel):
     
     model_config = ConfigDict(
         populate_by_name=True,
-        use_enum_values=True,
+        use_enum_values=False,
         extra="forbid",
         str_strip_whitespace=True,
-        arbitrary_types_allowed=True  # for ObjectId
+        arbitrary_types_allowed=True
     )
 
 class JobJobsdb(JobBase):
     experience_level: Optional[ExperienceLevel] = None
+    
+class Job(JobBase):
+    id: ObjectId = Field(alias="_id")
 
 # class JobLinkedIn(JobBase):
 #     experience_level: ExperienceLevel
