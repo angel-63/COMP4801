@@ -13,8 +13,8 @@ jobs:
         site: [linkedin, jobsdb]     # run in parallel
     
     env:
-      MONGO_URI: ${{ secrets.MONGODB_URI }}
-      MONGO_DB: ${{ secrets.MONGODB_NAME }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_NAME: ${{ vars.MONGODB_NAME }}
 
     steps:
       - uses: actions/checkout@v6
