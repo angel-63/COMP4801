@@ -36,4 +36,4 @@ jobs:
       - name: Run scraper for site ${{ matrix.site }}
         run: |
           PROXIES=$(curl -s https://raw.githubusercontent.com/Thordata/awesome-free-proxy-list/main/proxies/all.txt | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$' | head -n 20 | paste -sd,)
-          python run.py scraper --mode both --site ${{ matrix.site }} --proxies "$PROXIE
+          python run.py scraper --mode both --site ${{ matrix.site }} --proxies "$PROXIES"
