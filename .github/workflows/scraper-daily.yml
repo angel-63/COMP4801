@@ -2,7 +2,7 @@ name: Daily Job Scraper
 
 on:
   schedule:
-    - cron: '0 0/1 * * *'     # 16: for 00:00 UTC+8; 0/1: for testing
+    - cron: '5 0/1 * * *'     # 16: for 00:00 UTC+8; 5 0/1: for testing
   workflow_dispatch:
 
 jobs:
