@@ -5,16 +5,18 @@ on:
     - cron: '5 8/12 * * *'
   workflow_dispatch:
 
+environment: dev
+
+env:
+  MONGODB_URI: ${{ secrets.MONGODB_URI }}
+  MONGODB_NAME: ${{ vars.MONGODB_NAME }}
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         site: [linkedin, jobsdb]     # run in parallel
-    
-    env:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      MONGODB_NAME: ${{ vars.MONGODB_NAME }}
 
     steps:
       - uses: actions/checkout@v6
