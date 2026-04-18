@@ -18,6 +18,7 @@ class Scraper(ABC):
     ):
         self.site = site
         self.proxies = proxies
+        self.current_proxy_index = 0
         self.session = tls_client.Session(
             client_identifier="chrome112",
             random_tls_extension_order=True,
