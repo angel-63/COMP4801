@@ -336,6 +336,7 @@ class LinkedInScraper(Scraper):
 
             # logger.info(f"Successfully parsed job {job_id}: {title}\n)")# descp: {job_descp}") # url:{parse_application_url(soup=soup)}\n
             
+            required_skills, optional_skills = extract_skills(job_descp)
             # generate dedup key for checking b4 saving to db
             dedupKey = generate_dedup_key(title, job_descp)
             
@@ -361,7 +362,8 @@ class LinkedInScraper(Scraper):
                 original_post_id=job_id,
                 # emails = extract_emails_from_text(description),
                 # company_url=company_url,
-                skill_tags = extract_skills(job_descp),
+                skill_tags = required_skills,
+                optional_skill_tags = optional_skills,
                 role_category = scraper_input.role_category,
                 dedup_key = dedupKey
             )

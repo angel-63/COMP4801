@@ -46,18 +46,74 @@ def normalise_job_unction(function: str) -> set[str]:
     return tags
 
 def extract_skills(description: str) -> set[str]:
-    skills = set()
+    all_skills = set()
     text = remove_html_tags(description)
+    required_skills = set()
+    optional_skills = set()
+    required_patterns = [
+        (r"\bproficiency\s+in\b", "before"),
+        (r"\bstrong\b", "after"),
+        (r"\bproven\b", "after"),
+        (r"\bexcellent\b", "after"),
+        (r"\bmust\s+have\b", "both"),
+        (r"\brequired\b", "before"),
+        (r"\bis\s+essential\b", "after"),
+        (r"\bexperienced\s+in\b", "before"),
+    ]
+    optional_patterns = [
+        (r"\bknowledge\s+of\b", "before"),
+        (r"\bfamiliarity\s+with\b", "before"),
+        (r"\bis\s+an?\s+advantage\b", "after"),
+        (r"\bnice\s+to\s+have\b", "both"),
+        (r"\bpreferred\b", "both"),
+        (r"\bis\s+a\s+plus\b", "after"),
+        (r"\bbonus\b", "both"),
+        (r"\bdesired\b", "both"),
+    ]
+    
     for category, skill in SKILLS:
         # if re.search(r'\b' + re.escape(skill) + r'\b', text):
         if skill in text:
-            skills.add(skill)
-    return skills
+            all_skills.add(skill)
+            
+    for skill in all_skills:
+        for match in re.finditer(skill, text):
+            start = match.start()
+            end = match.end()
+            before_text = text[max(0, start - 80):start].lower()
+            after_text = text[end:min(len(text), end + 80)].lower()
 
-# def extract_skill_tags(description: str) -> list[str]:
-#     text = remove_html_tags(description)
-#     found = []
-#     for skill in SKILLS:
-#         if skill in text:
-#             found.append(skill.title())
-#     return sorted(set(found))
+            is_required = False
+            is_optional = False
+
+            for pat, direction in required_patterns:
+                if direction == "before" and re.search(pat, before_text):
+                    is_required = True
+                elif direction == "after" and re.search(pat, after_text):
+                    is_required = True
+                elif direction == "both" and (re.search(pat, before_text) or re.search(pat, after_text)):
+                    is_required = True
+                if is_required:
+                    break
+
+            if not is_required:
+                for pat, direction in optional_patterns:
+                    if direction == "before" and re.search(pat, before_text):
+                        is_optional = True
+                    elif direction == "after" and re.search(pat, after_text):
+                        is_optional = True
+                    elif direction == "both" and (re.search(pat, before_text) or re.search(pat, after_text)):
+                        is_optional = True
+                    if is_optional:
+                        break
+        
+        if is_required:
+            required_skills.add(skill)
+        elif is_optional:
+            optional_skills.add(skill)
+        else:
+            # if no cue, treat as optional
+            optional_skills.add(skill)
+    
+    optional_skills -= required_skills
+    return sorted(required_skills), sorted(optional_skills)

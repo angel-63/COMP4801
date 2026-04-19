@@ -4,8 +4,8 @@ from db.models.user import User
 from pydantic import BaseModel
 
 class MatchResult(BaseModel):
-    job_id: str
-    relevance_score: float   # Stage 2 tag‑based score
-    semantic_score: Optional[float] = None  # Stage 3
+    jobId: str
+    relevanceScore: float   # Stage 2 tag‑based score
+    semanticScore: Optional[float] = None  # Stage 3
     # ibcf_score: Optional[float] = None  # Stage 4
-    combined_score: float
+    combinedScore: float

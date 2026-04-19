@@ -7,9 +7,14 @@ from db.models.user import User
 # computes a relevance score based on tag overlap between user and job
 def relevance_score(user: User, job: JobBase) -> float:
     user_skills = {s.skill.lower() for s in user.skill_tags} if user.skill_tags else set()
-    job_skills = {s.lower() for s in job.skill_tags} if job.skill_tags else set()
-    skill_match = len(user_skills & job_skills)
+    # Required skills: high weight
+    required_set = {s.lower() for s in job.skill_tags}
+    required_match = len(user_skills & required_set)
+    # Optional skills: low weight
+    optional_set = {s.lower() for s in job.optional_skill_tags} if job.optional_skill_tags else set()
+    optional_match = len(user_skills & optional_set)
     
+    skill_match_weighted = required_match * 5 + optional_match * 1
     industry_match = len(set(user.preference_tags.industries) & set(job.company_industry))
     function_match = len(set(user.preference_tags.job_function) & set(job.job_function))
     
@@ -22,7 +27,7 @@ def relevance_score(user: User, job: JobBase) -> float:
         and job.experience_level in (user.preference_tags.experience_level or [])
     )
     
-    return skill_match * 10 + role_match * 5 + function_match * 2 + industry_match + exp_lv_match
+    return skill_match_weighted + role_match * 5 + function_match * 2 + industry_match + exp_lv_match
 
 # Stage 3
 model = SentenceTransformer('all-MiniLM-L6-v2') 

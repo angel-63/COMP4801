@@ -86,6 +86,7 @@ class JobBase(BaseModel):
     original_source_site: Site 
     original_post_id: Optional[str] = None  # for getting the original source url
     skill_tags: list[str] = Field(default_factory=list)
+    optional_skill_tags: list[str] = Field(default_factory=list)
     role_category: Optional[str] = None
     dedup_key: str
     
@@ -495,7 +496,7 @@ SKILLS_RULES = {
         "benefits administration", "labor law", "payroll", "training development"
     },
     "Information Technology": {
-        "python", "java", "javascript", "SQL", "AWS", "azure", "gcp", "linux", "unix", 
+        "python", "java", "javascript", "SQL", "AWS", "azure", r'\bc\b', "c++", "gcp", "linux", "unix", 
         "networking", "cybersecurity", "docker", "kubernetes", "CI/CD", r'\bgit\b', "agile",
         "scrum", "itil", "devops", "database administration", "cloud computing",
         "machine learning", "deep learning", "tensorflow", "pytorch", "windows server",

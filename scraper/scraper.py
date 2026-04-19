@@ -74,7 +74,7 @@ class Scraper(ABC):
     
     def get_with_retry(self, url: str, headers: Optional[dict] = None, params: Optional[dict] = None, retries: int = 3) -> Optional[tls_client.response]:
         headers = headers or self.headers
-        timeout=30
+        timeout=60
         for attempt in range(retries):
             # logger.info(f"Scraping: {url} with params: {params}")
             try:

@@ -32,9 +32,9 @@ def apply_filters(user: User, jobs: list[JobBase]) -> list[JobBase]:
             (job.experience_level in preference.experience_level if job.experience_level is not None else True) and\
             (job_id not in disliked) and\
             (job_id not in applied):
-                print("job.employment_type:", repr(job.employment_type), type(job.employment_type))
-                print("preference.employment_type:", [repr(x) for x in preference.employment_type])
-                print("job.expires_at >= now:", job.expires_at >= datetime.now())
-                print("job_function intersection:", bool(set(preference.job_function) & set(job.job_function)))
+                # print("job.employment_type:", repr(job.employment_type), type(job.employment_type))
+                # print("preference.employment_type:", [repr(x) for x in preference.employment_type])
+                # print("job.expires_at >= now:", job.expires_at >= datetime.now())
+                # print("job_function intersection:", bool(set(preference.job_function) & set(job.job_function)))
                 filtered.append(job)
     return filtered

@@ -53,16 +53,16 @@ async def match_jobs(request: User):
         combined = compute_hybrid_score(user, job, tag_score, sem_score)
 
         results.append(MatchResult(
-            job_id=str(job.id),
-            relevance_score=tag_score,
-            semantic_score=sem_score,
+            jobId=str(job.id),
+            relevanceScore=tag_score,
+            semanticScore=sem_score,
             # ibcf_score=collab_score,
-            combined_score=round(combined, 4)
+            combinedScore=round(combined, 4)
         ))
 
     # Sort by combined score descending
-    results.sort(key=lambda x: x.combined_score, reverse=True)
-    return results
+    results.sort(key=lambda x: x.combinedScore, reverse=True)
+    return results[:21]
 
 @app.get("/health")
 async def health():
