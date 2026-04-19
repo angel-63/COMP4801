@@ -179,6 +179,13 @@ public class ResumeAiService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 400) {
+                if (response.statusCode() == 401) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_GATEWAY,
+                            buildUnauthorizedMessage(requestUrl, response.body())
+                    );
+                }
+
                 if (response.statusCode() == 429) {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_GATEWAY,
@@ -275,11 +282,30 @@ public class ResumeAiService {
 
     private String joinUrl(String baseUrl, String path) {
         String sanitizedBase = baseUrl == null ? "" : baseUrl.trim();
+        String normalizedPath = path == null ? "" : path.trim();
+
+        if (sanitizedBase.endsWith(normalizedPath)) {
+            return sanitizedBase;
+        }
+
         if (sanitizedBase.endsWith("/")) {
             sanitizedBase = sanitizedBase.substring(0, sanitizedBase.length() - 1);
         }
 
-        return sanitizedBase + path;
+        return sanitizedBase + normalizedPath;
+    }
+
+    private String buildUnauthorizedMessage(String requestUrl, String responseBody) {
+        String host = "the configured AI provider";
+
+        try {
+            host = URI.create(requestUrl).getHost();
+        } catch (Exception ignored) {
+            // Keep the generic host label when the URL is malformed or missing.
+        }
+
+        return "AI authentication failed for %s. Check that the API key matches the provider endpoint and model configuration. Provider response: %s"
+                .formatted(host, summarize(responseBody));
     }
 
     private String buildReviewSystemPrompt() {

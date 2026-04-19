@@ -48,6 +48,7 @@ com\comp4801\jobportal\model\ExperienceLevel.class
 com\comp4801\jobportal\model\ResumeSkillItem$ResumeSkillItemBuilder.class
 com\comp4801\jobportal\services\ResumeExportService.class
 com\comp4801\jobportal\model\ResumeEducationItem$ResumeEducationItemBuilder.class
+com\comp4801\jobportal\services\RecommendationService.class
 com\comp4801\jobportal\dto\ResumeAiRequest.class
 com\comp4801\jobportal\model\ResumeSectionTitles.class
 com\comp4801\jobportal\dto\ResumeAiRequest$EducationItem.class
@@ -61,6 +62,7 @@ com\comp4801\jobportal\dto\CoverLetterExportRequest$Recipient.class
 com\comp4801\jobportal\dto\ResumeAiReviewResponse.class
 com\comp4801\jobportal\model\Certificate$CertificateBuilder.class
 com\comp4801\jobportal\dto\ResumeAiRequest$LanguageItem.class
+com\comp4801\jobportal\dto\RecommendedJobResponse.class
 com\comp4801\jobportal\model\SavedJob$SavedJobBuilder.class
 com\comp4801\jobportal\dto\CoverLetterExportRequest$LinkItem.class
 com\comp4801\jobportal\dto\ResumeAiRequest$ContentItem.class
@@ -80,6 +82,7 @@ com\comp4801\jobportal\model\ResumeSectionTitles$ResumeSectionTitlesBuilder.clas
 com\comp4801\jobportal\services\UserService.class
 com\comp4801\jobportal\model\EmploymentType.class
 com\comp4801\jobportal\model\CoverLetter.class
+com\comp4801\jobportal\services\RecommendationService$1.class
 com\comp4801\jobportal\dto\ResumeAiImproveResponse.class
 com\comp4801\jobportal\controller\HomeController.class
 com\comp4801\jobportal\dto\ResumeExportRequest$ExperienceItem.class
@@ -97,3 +100,4 @@ com\comp4801\jobportal\dto\UserProfileResponse.class
 com\comp4801\jobportal\model\Skill$SkillBuilder.class
 com\comp4801\jobportal\controller\CoverLetterExportController.class
 com\comp4801\jobportal\dto\CoverLetterAiImproveResponse.class
+com\comp4801\jobportal\dto\RecommendationResultResponse.class

@@ -95,8 +95,8 @@ class User(BaseModel):
     language: list[Language] = Field(default_factory=list)
     certificate: list[Certificate] = Field(default_factory=list)
     
-    created_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
-    updated_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = Field(default=True)
 
 class Resume(BaseModel):
@@ -112,8 +112,8 @@ class Resume(BaseModel):
     certificates: list[str] = Field(default_factory=list)
     file: Optional[bytes] = None
     
-    created_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
-    updated_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 class CoverLetter(BaseModel):
     id: str = Field(alias="_id", default_factory=ObjectId)
@@ -121,8 +121,8 @@ class CoverLetter(BaseModel):
     filename: str
     receiver: str
     content: str
-    created_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
-    updated_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 class ApplicationBase(BaseModel):
     id: str = Field(alias="_id", default_factory=ObjectId)
@@ -130,5 +130,5 @@ class ApplicationBase(BaseModel):
     job_id: str
     resume_id: str
     cover_letter_id: Optional[str] = None
-    applied_at: datetime = Field(default_factory=datetime.now(tz=ZoneInfo('Asia/Hong_Kong')))
+    applied_at: datetime = Field(default_factory=datetime.now)
     status: str = Field(default="applied")  # applied, viewed, interview, rejected, accepted

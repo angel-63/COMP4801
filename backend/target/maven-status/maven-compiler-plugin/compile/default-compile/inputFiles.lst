@@ -14,6 +14,8 @@ C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\CoverLetterAiReviewResponse.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\CoverLetterExportRequest.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\JobResponse.java
+C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\RecommendationResultResponse.java
+C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\RecommendedJobResponse.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\ResumeAiImproveResponse.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\ResumeAiRequest.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\dto\ResumeAiReviewResponse.java
@@ -51,6 +53,7 @@ C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\rep
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\repository\UserRepository.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\CoverLetterExportService.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\JobService.java
+C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\RecommendationService.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\ResumeAiService.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\ResumeExportService.java
 C:\Users\user\Projects\COMP4801\backend\src\main\java\com\comp4801\jobportal\services\ResumeService.java

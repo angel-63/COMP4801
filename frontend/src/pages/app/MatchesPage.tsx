@@ -13,12 +13,15 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react'
+import { getCurrentUserEmail, getCurrentUserId } from '../../lib/profileApi'
 import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
 
 type MatchJob = {
-  id: number
+  id: string
   title: string
   company: string
+  companyLogoDataUrl?: string | null
+  applicationUrl?: string
   salary: string
   level: string
   mode: string
@@ -28,9 +31,34 @@ type MatchJob = {
   explanation: string[]
 }
 
-const matches: MatchJob[] = [
+type RecommendedJobApiResponse = {
+  job: {
+    id: string
+    jobTitle: string
+    companyName: string
+    companyLogoDataUrl?: string | null
+    companyIndustry?: string[]
+    experienceLevel?: string
+    jobFunction?: string[]
+    employmentType?: string
+    jobMode?: string
+    jobDescription?: string
+    minSalary?: number | null
+    maxSalary?: number | null
+    applicationUrl?: string
+    skillTags?: string[]
+  }
+  scores: {
+    jobId: string
+    relevanceScore: number
+    semanticScore?: number | null
+    combinedScore: number
+  }
+}
+
+const fallbackMatches: MatchJob[] = [
   {
-    id: 1,
+    id: '1',
     title: 'Product Designer',
     company: 'Notion',
     salary: 'HK$28k - HK$36k',
@@ -47,7 +75,7 @@ const matches: MatchJob[] = [
     ],
   },
   {
-    id: 2,
+    id: '2',
     title: 'Frontend Engineer',
     company: 'Stripe',
     salary: 'HK$35k - HK$48k',
@@ -64,7 +92,7 @@ const matches: MatchJob[] = [
     ],
   },
   {
-    id: 3,
+    id: '3',
     title: 'Associate Product Manager',
     company: 'Airbnb',
     salary: 'HK$26k - HK$34k',
@@ -81,7 +109,7 @@ const matches: MatchJob[] = [
     ],
   },
   {
-    id: 4,
+    id: '4',
     title: 'Brand & Visual Designer',
     company: 'Canva',
     salary: 'HK$24k - HK$32k',
@@ -98,7 +126,7 @@ const matches: MatchJob[] = [
     ],
   },
   {
-    id: 5,
+    id: '5',
     title: 'UX Research Coordinator',
     company: 'Shopify',
     salary: 'HK$22k - HK$29k',
@@ -115,7 +143,7 @@ const matches: MatchJob[] = [
     ],
   },
   {
-    id: 6,
+    id: '6',
     title: 'Growth Marketing Designer',
     company: 'Duolingo',
     salary: 'HK$25k - HK$33k',
@@ -137,20 +165,180 @@ const swipeConfidenceThreshold = 12000
 const swipePower = (offset: number, velocity: number) =>
   Math.abs(offset) * velocity
 const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
+const MATCH_BATCH_SIZE = 10
+
+function mapRecommendationToMatchJob(item: RecommendedJobApiResponse): MatchJob {
+  const job = item.job
+  const score = item.scores
+  return {
+    id: job.id,
+    title: job.jobTitle,
+    company: job.companyName,
+    companyLogoDataUrl: job.companyLogoDataUrl || null,
+    applicationUrl: job.applicationUrl || '',
+    salary: formatSalary(job.minSalary, job.maxSalary),
+    level: job.experienceLevel || 'Not specified',
+    mode: job.jobMode || 'Not specified',
+    type: job.employmentType || 'Not specified',
+    tags: [
+      ...(job.companyIndustry || []).slice(0, 1),
+      ...(job.jobFunction || []).slice(0, 1),
+      ...(job.skillTags || []).slice(0, 2),
+    ].filter(Boolean),
+    description: sanitizeJobDescription(job.jobDescription),
+    explanation: buildExplanation(job, score),
+  }
+}
+
+function formatSalary(minSalary?: number | null, maxSalary?: number | null) {
+  if (minSalary && maxSalary) {
+    return `HK$${minSalary}k - HK$${maxSalary}k`
+  }
+  if (minSalary) {
+    return `From HK$${minSalary}k`
+  }
+  if (maxSalary) {
+    return `Up to HK$${maxSalary}k`
+  }
+  return 'Not specified'
+}
+
+function buildExplanation(
+  job: RecommendedJobApiResponse['job'],
+  score: RecommendedJobApiResponse['scores'],
+) {
+  const explanation: string[] = []
+
+  if (job.jobFunction?.length) {
+    explanation.push(`Role alignment is strong with ${job.jobFunction[0]}.`)
+  }
+
+  if (job.companyIndustry?.length) {
+    explanation.push(`This opportunity fits your interest in ${job.companyIndustry[0]}.`)
+  }
+
+  if (job.skillTags?.length) {
+    explanation.push(`Your profile overlaps with skills like ${job.skillTags.slice(0, 2).join(' and ')}.`)
+  }
+
+  if (job.jobMode) {
+    explanation.push(`${job.jobMode} work mode is compatible with your saved preferences.`)
+  }
+
+  if (job.employmentType) {
+    explanation.push(`${job.employmentType} setup matches the type of roles you are targeting.`)
+  }
+
+  if (typeof score.semanticScore === 'number' && score.semanticScore >= 0.35) {
+    explanation.push('Your background and this job description show a strong overall fit.')
+  }
+
+  if (explanation.length === 0) {
+    explanation.push('This job aligns well with the skills and preferences saved in your profile.')
+  }
+
+  return explanation.slice(0, 4)
+}
+
+function sanitizeJobDescription(value?: string) {
+  if (!value) {
+    return 'No job description available.'
+  }
+
+  const withoutTags = value
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<li>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+
+  const decoded = withoutTags
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+
+  return decoded
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
 
 export default function MatchesPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [matches, setMatches] = useState<MatchJob[]>(fallbackMatches)
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true)
+  const [isLoadingNextBatch, setIsLoadingNextBatch] = useState(false)
+  const [matchBatchPage, setMatchBatchPage] = useState(0)
+  const [hasMoreMatches, setHasMoreMatches] = useState(true)
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(0)
-  const [feedback, setFeedback] = useState<Record<number, 'yes' | 'no'>>({})
+  const [feedback, setFeedback] = useState<Record<string, 'yes' | 'no'>>({})
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState<string | null>(null)
   const [savedJobIds, setSavedJobIds] = useState<string[]>([])
 
   const totalSlides = matches.length + 1
   const isEnd = index >= matches.length
-  const currentJob = useMemo(() => matches[index], [index])
+  const currentJob = useMemo(() => matches[index], [matches, index])
+
+  const loadMatchBatch = async (page: number, useFallbackOnEmpty = false) => {
+    const email = getCurrentUserEmail()
+    const userId = getCurrentUserId()
+    const query = new URLSearchParams()
+
+    if (email) {
+      query.set('email', email)
+    } else if (userId) {
+      query.set('userId', userId)
+    }
+
+    query.set('page', String(page))
+    query.set('size', String(MATCH_BATCH_SIZE))
+
+    const response = await fetch(`/api/jobs/recommendations?${query.toString()}`)
+    if (!response.ok) {
+      throw new Error(`Failed to load recommendations: ${response.status}`)
+    }
+
+    const data = (await response.json()) as RecommendedJobApiResponse[]
+    const nextMatches = data.map(mapRecommendationToMatchJob)
+
+    if (nextMatches.length === 0 && useFallbackOnEmpty) {
+      return fallbackMatches
+    }
+
+    return nextMatches
+  }
+
+  useEffect(() => {
+    const loadInitialMatches = async () => {
+      try {
+        const nextMatches = await loadMatchBatch(0, true)
+        setMatches(nextMatches)
+        setMatchBatchPage(0)
+        setHasMoreMatches(nextMatches.length >= MATCH_BATCH_SIZE)
+        setIndex(0)
+      } catch (error) {
+        console.error(error)
+        setMatches(fallbackMatches)
+        setMatchBatchPage(0)
+        setHasMoreMatches(false)
+      } finally {
+        setIsLoadingMatches(false)
+      }
+    }
+
+    void loadInitialMatches()
+  }, [])
 
   useEffect(() => {
     const syncSavedJobs = async () => {
@@ -232,13 +420,13 @@ export default function MatchesPage() {
       JSON.stringify({
         mode,
         jobId: String(currentJob.id),
+        applicationUrl: currentJob.applicationUrl || '',
         jobTitle: currentJob.title,
         companyName: currentJob.company,
         employmentType: currentJob.type,
         jobMode: currentJob.mode,
         experienceLevel: currentJob.level,
         jobDescription: currentJob.description,
-        applicationUrl: '',
         skillTags: currentJob.tags,
         savedAt: new Date().toISOString(),
       }),
@@ -261,6 +449,29 @@ export default function MatchesPage() {
     setCopyStatus('No application link is available for this match.')
   }
 
+  const handleLoadNextBatch = async () => {
+    setIsLoadingNextBatch(true)
+
+    try {
+      const nextPage = matchBatchPage + 1
+      const nextMatches = await loadMatchBatch(nextPage)
+
+      if (nextMatches.length > 0) {
+        setMatches(nextMatches)
+        setMatchBatchPage(nextPage)
+        setHasMoreMatches(nextMatches.length >= MATCH_BATCH_SIZE)
+        setIndex(0)
+        setDirection(0)
+      } else {
+        setHasMoreMatches(false)
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsLoadingNextBatch(false)
+    }
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') paginate(1)
@@ -272,6 +483,15 @@ export default function MatchesPage() {
   }, [])
 
   const isSaved = currentJob ? savedJobIds.includes(String(currentJob.id)) : false
+
+  if (isLoadingMatches) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-[1100px] flex-col items-center justify-center px-6 py-10 text-white/75">
+        <div className="h-14 w-14 animate-spin rounded-full border-4 border-white/15 border-t-[#E7F12E]" />
+        <p className="mt-4 text-[15px] text-white/70">Loading matches...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="relative mx-auto flex min-h-[calc(100vh-120px)] max-w-[1100px] flex-col items-center">
@@ -316,15 +536,28 @@ export default function MatchesPage() {
                 </div>
 
                 <h2 className="text-5xl font-semibold tracking-tight">
-                  You&apos;ve seen all matches in this batch!
+                  {hasMoreMatches
+                    ? "You've seen all matches in this batch!"
+                    : "You've reached the end of your matches!"}
                 </h2>
                 <p className="mt-3 text-2xl text-white/70">
-                  Do you want to continue to
+                  {hasMoreMatches
+                    ? 'Do you want to continue to'
+                    : 'You can explore more opportunities in the jobs page.'}
                 </p>
 
                 <div className="mt-8 flex flex-wrap justify-center gap-5">
-                  <button className="rounded-lg bg-[#E7F12E] px-7 py-3 text-lg font-semibold text-black transition hover:opacity-95">
-                    View more matches
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadNextBatch()}
+                    disabled={isLoadingNextBatch || !hasMoreMatches}
+                    className="rounded-lg bg-[#E7F12E] px-7 py-3 text-lg font-semibold text-black transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isLoadingNextBatch
+                      ? 'Loading...'
+                      : hasMoreMatches
+                        ? 'View more matches'
+                        : 'No more matches'}
                   </button>
 
                   <Link
@@ -436,7 +669,15 @@ export default function MatchesPage() {
                 >
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded bg-[#7B7A74]" />
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded bg-[#7B7A74]">
+                        {currentJob.companyLogoDataUrl ? (
+                          <img
+                            src={currentJob.companyLogoDataUrl}
+                            alt={currentJob.company}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : null}
+                      </div>
                       <div>
                         <p className="text-[16px] text-black/65">
                           {currentJob.company}
@@ -523,10 +764,8 @@ export default function MatchesPage() {
                         Role Summary and Impact
                       </h4>
                       <p>
-                        This role will contribute to planning, execution, and
-                        coordination across projects. You will work with internal
-                        and external stakeholders to ensure effective delivery and
-                        business impact.
+                        This opportunity is one of your highest-ranked recommendations based on your saved profile,
+                        preferences, and semantic fit with the job description.
                       </p>
                     </div>
 
@@ -535,9 +774,7 @@ export default function MatchesPage() {
                         Core Responsibilities
                       </h4>
                       <p>
-                        Develop plans and recommendations, coordinate project
-                        execution, manage daily communication, and support
-                        high-quality delivery aligned with business goals.
+                        Review the original posting for detailed responsibilities and application requirements.
                       </p>
                     </div>
                   </div>

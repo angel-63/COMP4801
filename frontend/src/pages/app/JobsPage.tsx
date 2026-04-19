@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, ListFilter } from 'lucide-react'
 import { fetchJobById, searchJobs } from '../../lib/jobsApi'
+import { getCurrentUserEmail, getCurrentUserId } from '../../lib/profileApi'
 import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
 import type { JobSummary } from '../../types/job'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -50,6 +51,13 @@ const DATE_POSTED_OPTIONS = [
   { label: 'Last 30 days', value: 'Last 30 days' },
 ]
 
+const SORT_OPTIONS = [
+  { label: 'Recommended', value: 'recommended' },
+  { label: 'Newest', value: 'postedAt' },
+]
+
+type RecommendationScoreMap = Record<string, number>
+
 export default function JobsPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -63,10 +71,13 @@ export default function JobsPage() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDetailLoading, setIsDetailLoading] = useState(false)
+  const [isRecommendationsLoading, setIsRecommendationsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [totalPages, setTotalPages] = useState(1)
   const [totalResults, setTotalResults] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedSortBy, setSelectedSortBy] = useState<'recommended' | 'postedAt'>('postedAt')
+  const [recommendationScores, setRecommendationScores] = useState<RecommendationScoreMap>({})
 
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEmploymentType, setSelectedEmploymentType] = useState('')
@@ -79,6 +90,8 @@ export default function JobsPage() {
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState<string | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(() => getCachedUserProfile())
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
+  const sortMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (requestedSavedJobId) {
@@ -114,6 +127,71 @@ export default function JobsPage() {
   }, [])
 
   useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!sortMenuRef.current?.contains(event.target as Node)) {
+        setIsSortMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedSortBy !== 'recommended') {
+      return
+    }
+
+    const loadRecommendationScores = async () => {
+      setIsRecommendationsLoading(true)
+
+      try {
+        const email = getCurrentUserEmail()
+        const userId = getCurrentUserId()
+        const query = new URLSearchParams()
+
+        if (email) {
+          query.set('email', email)
+        } else if (userId) {
+          query.set('userId', userId)
+        }
+
+        const response = await fetch(`/api/jobs/recommendations?${query.toString()}`)
+        if (!response.ok) {
+          throw new Error(`Failed to load recommendation scores: ${response.status}`)
+        }
+
+        const payload = (await response.json()) as Array<{
+          job?: { id?: string }
+          scores?: { jobId?: string; combinedScore?: number }
+        }>
+
+        const nextScores = payload.reduce<RecommendationScoreMap>((accumulator, item) => {
+          const jobId = item.scores?.jobId || item.job?.id
+          const combinedScore = item.scores?.combinedScore
+
+          if (jobId && typeof combinedScore === 'number') {
+            accumulator[jobId] = combinedScore
+          }
+
+          return accumulator
+        }, {})
+
+        setRecommendationScores(nextScores)
+      } catch (recommendationError) {
+        console.error(recommendationError)
+        setRecommendationScores({})
+      } finally {
+        setIsRecommendationsLoading(false)
+      }
+    }
+
+    void loadRecommendationScores()
+  }, [selectedSortBy])
+
+  useEffect(() => {
     setCurrentPage(1)
   }, [
     searchTerm,
@@ -146,8 +224,12 @@ export default function JobsPage() {
           sortBy: 'postedAt',
           direction: 'desc',
         })
+        const nextJobs =
+          selectedSortBy === 'recommended'
+            ? sortJobsByRecommendation(response.content, recommendationScores)
+            : response.content
 
-        setJobs(response.content)
+        setJobs(nextJobs)
         setTotalPages(Math.max(response.totalPages || 0, 1))
         setTotalResults(response.totalElements || response.content.length)
 
@@ -181,6 +263,8 @@ export default function JobsPage() {
     selectedCompany,
     selectedJobFunction,
     selectedDatePosted,
+    selectedSortBy,
+    recommendationScores,
     requestedSavedJobId,
   ])
 
@@ -384,9 +468,46 @@ export default function JobsPage() {
               Showing {jobs.length === 0 ? 0 : (currentPage - 1) * JOBS_PER_PAGE + 1}-
               {Math.min(currentPage * JOBS_PER_PAGE, totalResults)} of {totalResults} results
             </p>
-            <button className="text-white/70" type="button" aria-label="Filter summary">
-              <ListFilter size={20} />
-            </button>
+            <div className="flex items-center gap-3">
+              {selectedSortBy === 'recommended' && isRecommendationsLoading ? (
+                <span className="text-sm text-white/60">Ranking for you...</span>
+              ) : null}
+              <div ref={sortMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSortMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-2 rounded-full border border-white/15 bg-[#5A5A55] px-3 py-2 text-sm text-white/80 transition hover:border-white/30 hover:text-white"
+                >
+                  <span>{selectedSortBy === 'recommended' ? 'Recommended' : 'Newest'}</span>
+                  <ListFilter size={18} />
+                </button>
+
+                {isSortMenuOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[180px] rounded-2xl border border-white/10 bg-[#5A5A55] p-2 shadow-[0_18px_36px_rgba(0,0,0,0.3)]">
+                    {SORT_OPTIONS.map((option) => {
+                      const isActive = selectedSortBy === option.value
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSortBy(option.value as 'recommended' | 'postedAt')
+                            setIsSortMenuOpen(false)
+                          }}
+                          className={`w-full rounded-xl px-4 py-2 text-left text-sm transition ${
+                            isActive
+                              ? 'bg-white/10 text-[#E7F12E]'
+                              : 'text-white/85 hover:bg-white/8 hover:text-white'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -839,6 +960,21 @@ function mapDatePostedToHours(value: string) {
   if (value === 'Last 7 days') return 24 * 7
   if (value === 'Last 30 days') return 24 * 30
   return undefined
+}
+
+function sortJobsByRecommendation(jobs: JobSummary[], recommendationScores: RecommendationScoreMap) {
+  return [...jobs].sort((left, right) => {
+    const leftScore = recommendationScores[left.id] ?? Number.NEGATIVE_INFINITY
+    const rightScore = recommendationScores[right.id] ?? Number.NEGATIVE_INFINITY
+
+    if (leftScore !== rightScore) {
+      return rightScore - leftScore
+    }
+
+    const leftPostedAt = left.postedAt ? new Date(left.postedAt).getTime() : 0
+    const rightPostedAt = right.postedAt ? new Date(right.postedAt).getTime() : 0
+    return rightPostedAt - leftPostedAt
+  })
 }
 
 function formatRelativeDate(value?: string) {
