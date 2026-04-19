@@ -1,118 +1,72 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, ListFilter } from 'lucide-react'
+import { fetchJobById, searchJobs } from '../../lib/jobsApi'
+import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
+import type { JobSummary } from '../../types/job'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { fetchCurrentUserProfile, getCachedUserProfile } from '../../lib/profileApi'
+import type { UserProfile } from '../../types/profile'
 
-type Job = {
-  id: number
-  title: string
-  company: string
-  location: string
-  employmentType: string
-  jobMode: string
-  experienceLevel: string
-  industry: string
-  jobFunction: string
-  datePosted: string
-  description: string
-  isSaved: boolean
-}
+const JOBS_PER_PAGE = 20
+const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
 
-const jobsData: Job[] = [
-  {
-    id: 1,
-    title: 'Frontend Developer',
-    company: 'Google',
-    location: 'Hong Kong',
-    employmentType: 'Full-time',
-    jobMode: 'Remote',
-    experienceLevel: 'Junior',
-    industry: 'Technology',
-    jobFunction: 'Engineering',
-    datePosted: '1d ago',
-    description:
-      'Build and maintain modern frontend interfaces using React and TypeScript. Collaborate with designers and product teams to deliver polished user experiences.',
-    isSaved: false,
-  },
-  {
-    id: 2,
-    title: 'UI/UX Designer',
-    company: 'Spotify',
-    location: 'Singapore',
-    employmentType: 'Contract',
-    jobMode: 'Hybrid',
-    experienceLevel: 'Mid',
-    industry: 'Media',
-    jobFunction: 'Design',
-    datePosted: '1d ago',
-    description:
-      'Design intuitive digital experiences and collaborate with product teams. Work across user flows, interaction patterns, and interface systems.',
-    isSaved: true,
-  },
-  {
-    id: 3,
-    title: 'Business Analyst',
-    company: 'Deloitte',
-    location: 'Hong Kong',
-    employmentType: 'Full-time',
-    jobMode: 'On-site',
-    experienceLevel: 'Junior',
-    industry: 'Consulting',
-    jobFunction: 'Business',
-    datePosted: '1d ago',
-    description:
-      'Support project analysis, requirements gathering, and stakeholder communication. Translate business needs into structured recommendations.',
-    isSaved: false,
-  },
-  {
-    id: 4,
-    title: 'Product Associate',
-    company: 'Airbnb',
-    location: 'Remote',
-    employmentType: 'Internship',
-    jobMode: 'Remote',
-    experienceLevel: 'Junior',
-    industry: 'Technology',
-    jobFunction: 'Product',
-    datePosted: '2d ago',
-    description:
-      'Assist product managers in research, backlog grooming, and user story definition while working with cross-functional teams.',
-    isSaved: false,
-  },
-  {
-    id: 5,
-    title: 'Marketing Executive',
-    company: 'Canva',
-    location: 'Singapore',
-    employmentType: 'Full-time',
-    jobMode: 'Hybrid',
-    experienceLevel: 'Mid',
-    industry: 'Media',
-    jobFunction: 'Marketing',
-    datePosted: '3d ago',
-    description:
-      'Drive campaign execution, content coordination, and performance reporting across digital and brand channels.',
-    isSaved: true,
-  },
-  {
-    id: 6,
-    title: 'Software Engineer',
-    company: 'Microsoft',
-    location: 'Hong Kong',
-    employmentType: 'Full-time',
-    jobMode: 'On-site',
-    experienceLevel: 'Senior',
-    industry: 'Technology',
-    jobFunction: 'Engineering',
-    datePosted: '5d ago',
-    description:
-      'Develop scalable platform features, contribute to architecture decisions, and collaborate closely with engineering peers.',
-    isSaved: false,
-  },
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { label: 'Full-time', value: 'fulltime' },
+  { label: 'Part-time', value: 'parttime' },
+  { label: 'Internship', value: 'internship' },
+  { label: 'Contract', value: 'contract' },
 ]
 
-const JOBS_PER_PAGE = 4
+const EXPERIENCE_LEVEL_OPTIONS = [
+  { label: 'Internship', value: 'internship' },
+  { label: 'Junior', value: 'entry level' },
+  { label: 'Mid', value: 'associate' },
+  { label: 'Senior', value: 'mid-senior level' },
+]
+
+const JOB_FUNCTION_OPTIONS = [
+  { label: 'Engineering', value: 'Engineering' },
+  { label: 'Design', value: 'Design' },
+  { label: 'Business', value: 'Business' },
+  { label: 'Product', value: 'Product' },
+  { label: 'Marketing', value: 'Marketing' },
+]
+
+const INDUSTRY_OPTIONS = [
+  { label: 'Technology', value: 'Technology' },
+  { label: 'Media', value: 'Media' },
+  { label: 'Consulting', value: 'Consulting' },
+]
+
+const JOB_MODE_OPTIONS = [
+  { label: 'Remote', value: 'remote' },
+  { label: 'Hybrid', value: 'hybrid' },
+  { label: 'On-site', value: 'on-site' },
+]
+
+const DATE_POSTED_OPTIONS = [
+  { label: 'Last 24 hours', value: 'Last 24 hours' },
+  { label: 'Last 7 days', value: 'Last 7 days' },
+  { label: 'Last 30 days', value: 'Last 30 days' },
+]
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<Job[]>(jobsData)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const requestedSavedJobId = useMemo(
+    () => new URLSearchParams(location.search).get('savedJobId'),
+    [location.search],
+  )
+  const [jobs, setJobs] = useState<JobSummary[]>([])
+  const [selectedJob, setSelectedJob] = useState<JobSummary | null>(null)
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalResults, setTotalResults] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEmploymentType, setSelectedEmploymentType] = useState('')
@@ -122,58 +76,42 @@ export default function JobsPage() {
   const [selectedCompany, setSelectedCompany] = useState('')
   const [selectedJobFunction, setSelectedJobFunction] = useState('')
   const [selectedDatePosted, setSelectedDatePosted] = useState('')
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<string | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(() => getCachedUserProfile())
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesSearch =
-        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    if (requestedSavedJobId) {
+      setSelectedJobId(requestedSavedJobId)
+    }
+  }, [requestedSavedJobId])
 
-      const matchesEmploymentType =
-        selectedEmploymentType === '' || job.employmentType === selectedEmploymentType
+  useEffect(() => {
+    const syncSavedJobs = async () => {
+      const items = await readSavedJobs()
+      setSavedJobIds(items.map((job) => job.id))
+    }
 
-      const matchesJobMode =
-        selectedJobMode === '' || job.jobMode === selectedJobMode
-
-      const matchesExperienceLevel =
-        selectedExperienceLevel === '' || job.experienceLevel === selectedExperienceLevel
-
-      const matchesIndustry =
-        selectedIndustry === '' || job.industry === selectedIndustry
-
-      const matchesCompany =
-        selectedCompany === '' || job.company === selectedCompany
-
-      const matchesJobFunction =
-        selectedJobFunction === '' || job.jobFunction === selectedJobFunction
-
-      const matchesDatePosted =
-        selectedDatePosted === '' || normalizeDatePosted(job.datePosted) === selectedDatePosted
-
-      return (
-        matchesSearch &&
-        matchesEmploymentType &&
-        matchesJobMode &&
-        matchesExperienceLevel &&
-        matchesIndustry &&
-        matchesCompany &&
-        matchesJobFunction &&
-        matchesDatePosted
-      )
+    void syncSavedJobs()
+    return subscribeToSavedJobs(() => {
+      void syncSavedJobs()
     })
-  }, [
-    jobs,
-    searchTerm,
-    selectedEmploymentType,
-    selectedJobMode,
-    selectedExperienceLevel,
-    selectedIndustry,
-    selectedCompany,
-    selectedJobFunction,
-    selectedDatePosted,
-  ])
+  }, [])
 
-  const [currentPage, setCurrentPage] = useState(1)
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setProfile(await fetchCurrentUserProfile())
+      } catch {
+        const cachedProfile = getCachedUserProfile()
+        if (cachedProfile) {
+          setProfile(cachedProfile)
+        }
+      }
+    }
+
+    void loadProfile()
+  }, [])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -188,33 +126,119 @@ export default function JobsPage() {
     selectedDatePosted,
   ])
 
-  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / JOBS_PER_PAGE))
-  const startIndex = (currentPage - 1) * JOBS_PER_PAGE
-  const paginatedJobs = filteredJobs.slice(startIndex, startIndex + JOBS_PER_PAGE)
+  useEffect(() => {
+    const loadJobs = async () => {
+      setIsLoading(true)
+      setError(null)
 
-  const [selectedJobId, setSelectedJobId] = useState<number>(jobsData[0].id)
+      try {
+        const response = await searchJobs({
+          keyword: searchTerm,
+          employmentType: selectedEmploymentType,
+          jobMode: selectedJobMode,
+          experienceLevel: selectedExperienceLevel,
+          industry: selectedIndustry,
+          company: selectedCompany,
+          jobFunction: selectedJobFunction,
+          hours: mapDatePostedToHours(selectedDatePosted),
+          page: currentPage - 1,
+          size: JOBS_PER_PAGE,
+          sortBy: 'postedAt',
+          direction: 'desc',
+        })
 
-  const selectedJob =
-    filteredJobs.find((job) => job.id === selectedJobId) ??
-    paginatedJobs[0] ??
-    filteredJobs[0] ??
-    null
+        setJobs(response.content)
+        setTotalPages(Math.max(response.totalPages || 0, 1))
+        setTotalResults(response.totalElements || response.content.length)
+
+        setSelectedJobId((currentSelectedJobId) => {
+          if (requestedSavedJobId) {
+            return requestedSavedJobId
+          }
+
+          return currentSelectedJobId ?? response.content[0]?.id ?? null
+        })
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load jobs')
+        setJobs([])
+        setSelectedJobId(null)
+        setSelectedJob(null)
+        setTotalPages(1)
+        setTotalResults(0)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadJobs()
+  }, [
+    currentPage,
+    searchTerm,
+    selectedEmploymentType,
+    selectedJobMode,
+    selectedExperienceLevel,
+    selectedIndustry,
+    selectedCompany,
+    selectedJobFunction,
+    selectedDatePosted,
+    requestedSavedJobId,
+  ])
 
   useEffect(() => {
-    if (selectedJob && selectedJob.id !== selectedJobId) {
-      setSelectedJobId(selectedJob.id)
+    if (!selectedJobId) {
+      setSelectedJob(null)
+      return
     }
-  }, [selectedJob, selectedJobId])
 
-  const toggleSaved = (jobId: number) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id === jobId ? { ...job, isSaved: !job.isSaved } : job,
-      ),
-    )
+    const fallbackJob = jobs.find((job) => job.id === selectedJobId) ?? null
+    setSelectedJob(fallbackJob)
+
+    const loadJobDetail = async () => {
+      setIsDetailLoading(true)
+
+      try {
+        const detail = await fetchJobById(selectedJobId)
+        setSelectedJob(detail)
+      } catch {
+        setSelectedJob(fallbackJob)
+      } finally {
+        setIsDetailLoading(false)
+      }
+    }
+
+    void loadJobDetail()
+  }, [jobs, selectedJobId])
+
+  const pageNumbers = useMemo(() => buildPageNumbers(currentPage, totalPages), [currentPage, totalPages])
+  const profileTagMatcher = useMemo(() => buildProfileTagMatcher(profile), [profile])
+
+  const toggleSaved = async (job: JobSummary) => {
+    const nextItems = await toggleSavedJob({
+      id: job.id,
+      title: job.jobTitle || 'Untitled role',
+      companyName: job.companyName || 'Unknown company',
+      employmentType: job.employmentType || '',
+      jobMode: job.jobMode || '',
+      experienceLevel: job.experienceLevel || '',
+      description: job.jobDescription || '',
+      tags: [
+        ...(job.companyIndustry || []),
+        ...(job.jobFunction || []),
+        ...(job.skillTags || []),
+      ].filter(Boolean),
+      companyLogoDataUrl: job.companyLogoDataUrl,
+      applicationUrl: job.applicationUrl,
+      originalSourceSite: job.originalSourceSite,
+      postedAt: job.postedAt,
+      createdAt: job.createdAt,
+      savedAt: new Date().toISOString(),
+      source: 'jobs',
+    })
+    setSavedJobIds(nextItems.map((item) => item.id))
   }
 
   const resetFilters = () => {
+    setSearchTerm('')
     setSelectedEmploymentType('')
     setSelectedJobMode('')
     setSelectedExperienceLevel('')
@@ -224,7 +248,62 @@ export default function JobsPage() {
     setSelectedDatePosted('')
   }
 
-  const pageNumbers = buildPageNumbers(currentPage, totalPages)
+  const openApplyModal = () => {
+    setCopyStatus(null)
+    setIsApplyModalOpen(true)
+  }
+
+  const closeApplyModal = () => {
+    setIsApplyModalOpen(false)
+    setCopyStatus(null)
+  }
+
+  const storeApplicationPrepContext = (mode: 'resume' | 'cover-letter') => {
+    if (typeof window === 'undefined' || !selectedJob) return
+
+    window.localStorage.setItem(
+      APPLICATION_PREP_STORAGE_KEY,
+      JSON.stringify({
+        mode,
+        jobId: selectedJob.id,
+        jobTitle: selectedJob.jobTitle || '',
+        companyName: selectedJob.companyName || '',
+        employmentType: selectedJob.employmentType || '',
+        jobMode: selectedJob.jobMode || '',
+        experienceLevel: selectedJob.experienceLevel || '',
+        jobDescription: selectedJob.jobDescription || '',
+        applicationUrl: selectedJob.applicationUrl || '',
+        skillTags: selectedJob.skillTags || [],
+        savedAt: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const handlePrepareResume = () => {
+    storeApplicationPrepContext('resume')
+    closeApplyModal()
+    navigate('/documents')
+  }
+
+  const handlePrepareCoverLetter = () => {
+    storeApplicationPrepContext('cover-letter')
+    closeApplyModal()
+    navigate('/documents')
+  }
+
+  const handleCopyApplicationLink = async () => {
+    if (!selectedJob?.applicationUrl) {
+      setCopyStatus('No application link is available for this job.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(selectedJob.applicationUrl)
+      setCopyStatus('Application link copied.')
+    } catch {
+      setCopyStatus('Unable to copy the application link.')
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
@@ -257,43 +336,42 @@ export default function JobsPage() {
               label="Date posted"
               value={selectedDatePosted}
               onChange={setSelectedDatePosted}
-              options={['Last 24 hours', 'Last 7 days', 'Last 30 days']}
+              options={DATE_POSTED_OPTIONS}
             />
             <FilterSelect
               label="Employment type"
               value={selectedEmploymentType}
               onChange={setSelectedEmploymentType}
-              options={['Full-time', 'Part-time', 'Internship', 'Contract']}
+              options={EMPLOYMENT_TYPE_OPTIONS}
             />
             <FilterSelect
               label="Experience level"
               value={selectedExperienceLevel}
               onChange={setSelectedExperienceLevel}
-              options={['Junior', 'Mid', 'Senior']}
+              options={EXPERIENCE_LEVEL_OPTIONS}
             />
             <FilterSelect
               label="Job function"
               value={selectedJobFunction}
               onChange={setSelectedJobFunction}
-              options={['Engineering', 'Design', 'Business', 'Product', 'Marketing']}
+              options={JOB_FUNCTION_OPTIONS}
             />
             <FilterSelect
               label="Industry"
               value={selectedIndustry}
               onChange={setSelectedIndustry}
-              options={['Technology', 'Media', 'Consulting']}
+              options={INDUSTRY_OPTIONS}
             />
-            <FilterSelect
+            <FilterInput
               label="Company"
               value={selectedCompany}
               onChange={setSelectedCompany}
-              options={['Google', 'Spotify', 'Deloitte', 'Airbnb', 'Canva', 'Microsoft']}
             />
             <FilterSelect
               label="Job mode"
               value={selectedJobMode}
               onChange={setSelectedJobMode}
-              options={['Remote', 'Hybrid', 'On-site']}
+              options={JOB_MODE_OPTIONS}
             />
           </div>
         </div>
@@ -303,8 +381,8 @@ export default function JobsPage() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[16px] text-white/85">
-              Showing {filteredJobs.length === 0 ? 0 : startIndex + 1}-
-              {Math.min(startIndex + JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} results
+              Showing {jobs.length === 0 ? 0 : (currentPage - 1) * JOBS_PER_PAGE + 1}-
+              {Math.min(currentPage * JOBS_PER_PAGE, totalResults)} of {totalResults} results
             </p>
             <button className="text-white/70" type="button" aria-label="Filter summary">
               <ListFilter size={20} />
@@ -312,9 +390,14 @@ export default function JobsPage() {
           </div>
 
           <div className="space-y-4">
-            {paginatedJobs.length > 0 ? (
-              paginatedJobs.map((job) => {
-                const isSelected = selectedJob?.id === job.id
+            {isLoading ? (
+              <div className="rounded-2xl bg-[#5A5A55] p-6 text-sm text-white/60">Loading jobs...</div>
+            ) : error ? (
+              <div className="rounded-2xl bg-[#5A5A55] p-6 text-sm text-red-200">{error}</div>
+            ) : jobs.length > 0 ? (
+              jobs.map((job) => {
+                const isSelected = selectedJobId === job.id
+                const isSaved = savedJobIds.includes(job.id)
 
                 return (
                   <button
@@ -330,22 +413,29 @@ export default function JobsPage() {
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-7 w-7 bg-[#73736E]" />
-                          <p className="text-[15px] text-white/80">{job.company}</p>
+                          <CompanyLogo
+                            src={job.companyLogoDataUrl}
+                            alt={job.companyName || 'Company logo'}
+                            className="h-7 w-7"
+                            textClassName="text-[10px]"
+                          />
+                          <p className="text-[15px] text-white/80">{job.companyName || 'Unknown company'}</p>
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <span className="text-[12px] text-white/35">{job.datePosted}</span>
+                          <span className="text-[12px] text-white/35">
+                            {formatRelativeDate(job.postedAt || job.createdAt)}
+                          </span>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              toggleSaved(job.id)
+                              void toggleSaved(job)
                             }}
                             className="text-white/65 hover:text-white"
-                            aria-label={job.isSaved ? 'Unsave job' : 'Save job'}
+                            aria-label={isSaved ? 'Unsave job' : 'Save job'}
                           >
-                            {job.isSaved ? (
+                            {isSaved ? (
                               <BookmarkCheck size={18} className="text-[#E7F12E]" />
                             ) : (
                               <Bookmark size={18} />
@@ -355,28 +445,60 @@ export default function JobsPage() {
                       </div>
 
                       <div>
-                        <h3 className="text-[17px] font-semibold text-white">{job.title}</h3>
+                        <h3 className="text-[17px] font-semibold text-white">{job.jobTitle || 'Untitled role'}</h3>
                       </div>
 
                       <div>
                         <p className="text-[13px] text-white/58">
-                          {job.employmentType} · {job.jobMode}
+                          {formatEmploymentLine(job.employmentType, job.jobMode)}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="rounded bg-[#DDE400] px-2 py-0.5 text-[11px] text-black">
-                          {job.industry}
-                        </span>
-                        <span className="rounded bg-white/15 px-2 py-0.5 text-[11px] text-white/60">
-                          {job.jobFunction}
-                        </span>
-                        <span className="rounded bg-white/15 px-2 py-0.5 text-[11px] text-white/60">
-                          {job.location}
-                        </span>
-                        <span className="rounded bg-white/15 px-2 py-0.5 text-[11px] text-white/60">
-                          {job.experienceLevel}
-                        </span>
+                        {job.companyIndustry?.[0] ? (
+                          <span
+                            className={`rounded px-2 py-0.5 text-[11px] ${
+                              profileTagMatcher.matchesIndustry(job.companyIndustry[0])
+                                ? 'bg-[#DDE400] text-black'
+                                : 'bg-white/15 text-white/60'
+                            }`}
+                          >
+                            {job.companyIndustry[0]}
+                          </span>
+                        ) : null}
+                        {job.jobFunction?.[0] ? (
+                          <span
+                            className={`rounded px-2 py-0.5 text-[11px] ${
+                              profileTagMatcher.matchesJobFunction(job.jobFunction[0])
+                                ? 'bg-[#DDE400] text-black'
+                                : 'bg-white/15 text-white/60'
+                            }`}
+                          >
+                            {job.jobFunction[0]}
+                          </span>
+                        ) : null}
+                        {job.jobMode ? (
+                          <span
+                            className={`rounded px-2 py-0.5 text-[11px] ${
+                              profileTagMatcher.matchesJobMode(job.jobMode)
+                                ? 'bg-[#DDE400] text-black'
+                                : 'bg-white/15 text-white/60'
+                            }`}
+                          >
+                            {job.jobMode}
+                          </span>
+                        ) : null}
+                        {job.experienceLevel ? (
+                          <span
+                            className={`rounded px-2 py-0.5 text-[11px] ${
+                              profileTagMatcher.matchesExperienceLevel(job.experienceLevel)
+                                ? 'bg-[#DDE400] text-black'
+                                : 'bg-white/15 text-white/60'
+                            }`}
+                          >
+                            {job.experienceLevel}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </button>
@@ -435,92 +557,141 @@ export default function JobsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl bg-[#F0EFEA] p-5 text-[#1E1E1D]">
+        <div className="self-start rounded-2xl bg-[#F0EFEA] p-5 text-[#1E1E1D]">
           {selectedJob ? (
             <>
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="mt-1 h-9 w-9 bg-[#73736E]" />
+                  <CompanyLogo
+                    src={selectedJob.companyLogoDataUrl}
+                    alt={selectedJob.companyName || 'Company logo'}
+                    className="mt-1 h-9 w-9"
+                    textClassName="text-xs"
+                  />
                   <div>
-                    <p className="text-[16px] text-black/65">{selectedJob.company}</p>
+                    <p className="text-[16px] text-black/65">{selectedJob.companyName || 'Unknown company'}</p>
+                    {isDetailLoading ? (
+                      <p className="text-[13px] text-black/45">Loading full details...</p>
+                    ) : null}
                   </div>
                 </div>
 
                 <div className="flex gap-3">
-                  <button className="min-w-[120px] rounded-md bg-[#E7F12E] px-5 py-2.5 text-[16px] font-semibold text-black">
+                  <button
+                    type="button"
+                    onClick={openApplyModal}
+                    disabled={!selectedJob.applicationUrl}
+                    className={`min-w-[120px] rounded-md px-5 py-2.5 text-center text-[16px] font-semibold ${
+                      selectedJob.applicationUrl
+                        ? 'bg-[#E7F12E] text-black'
+                        : 'cursor-not-allowed bg-black/10 text-black/35'
+                    }`}
+                  >
                     Apply
                   </button>
                   <button
                     type="button"
-                    onClick={() => toggleSaved(selectedJob.id)}
+                    onClick={() => void toggleSaved(selectedJob)}
                     className={`min-w-[120px] rounded-md px-5 py-2.5 text-[16px] font-semibold ${
-                      selectedJob.isSaved
+                      savedJobIds.includes(selectedJob.id)
                         ? 'border-[3px] border-black/10 bg-black/20 text-black/40'
                         : 'border-[3px] border-black/20 text-black/35'
                     }`}
                   >
-                    {selectedJob.isSaved ? 'Saved' : 'Save'}
+                    {savedJobIds.includes(selectedJob.id) ? 'Saved' : 'Save'}
                   </button>
                 </div>
               </div>
 
-              <h2 className="text-[28px] font-semibold">{selectedJob.title}</h2>
+              <h2 className="text-[28px] font-semibold">{selectedJob.jobTitle || 'Untitled role'}</h2>
 
               <div className="mt-3 grid max-w-[360px] gap-y-2 text-[15px] text-black/75">
                 <div className="grid grid-cols-[170px_1fr]">
                   <span>Salary</span>
-                  <span>16k</span>
+                  <span>{formatSalary(selectedJob.minSalary, selectedJob.maxSalary)}</span>
                 </div>
                 <div className="grid grid-cols-[170px_1fr]">
                   <span>Experience level</span>
-                  <span>{selectedJob.experienceLevel}</span>
+                  <span>{selectedJob.experienceLevel || 'Not specified'}</span>
                 </div>
                 <div className="grid grid-cols-[170px_1fr]">
                   <span>Job model</span>
-                  <span>{selectedJob.jobMode}</span>
+                  <span>{selectedJob.jobMode || 'Not specified'}</span>
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded bg-[#DDE400] px-3 py-1 text-[13px] text-black">
-                  {selectedJob.industry}
-                </span>
-                <span className="rounded bg-black/10 px-3 py-1 text-[13px] text-black/55">
-                  {selectedJob.jobFunction}
-                </span>
-                <span className="rounded bg-black/10 px-3 py-1 text-[13px] text-black/55">
-                  {selectedJob.location}
-                </span>
-                <span className="rounded bg-black/10 px-3 py-1 text-[13px] text-black/55">
-                  {selectedJob.employmentType}
-                </span>
+                {selectedJob.companyIndustry?.map((industry) => (
+                  <span
+                    key={industry}
+                    className={`rounded px-3 py-1 text-[13px] ${
+                      profileTagMatcher.matchesIndustry(industry)
+                        ? 'bg-[#DDE400] text-black'
+                        : 'bg-black/10 text-black/55'
+                    }`}
+                  >
+                    {industry}
+                  </span>
+                ))}
+                {selectedJob.jobFunction?.map((jobFunction) => (
+                  <span
+                    key={jobFunction}
+                    className={`rounded px-3 py-1 text-[13px] ${
+                      profileTagMatcher.matchesJobFunction(jobFunction)
+                        ? 'bg-[#DDE400] text-black'
+                        : 'bg-black/10 text-black/55'
+                    }`}
+                  >
+                    {jobFunction}
+                  </span>
+                ))}
+                {selectedJob.employmentType ? (
+                  <span
+                    className={`rounded px-3 py-1 text-[13px] ${
+                      profileTagMatcher.matchesEmploymentType(selectedJob.employmentType)
+                        ? 'bg-[#DDE400] text-black'
+                        : 'bg-black/10 text-black/55'
+                    }`}
+                  >
+                    {selectedJob.employmentType}
+                  </span>
+                ) : null}
               </div>
 
               <div className="my-4 h-px bg-black/10" />
 
               <div className="space-y-5 text-[15px] leading-7 text-black/80">
                 <div>
-                  <h4 className="mb-1.5 font-medium">About {selectedJob.company}</h4>
-                  <p>{selectedJob.description}</p>
+                  <h4 className="mb-1.5 font-medium">About {selectedJob.companyName || 'the company'}</h4>
+                  <JobDescription description={selectedJob.jobDescription} />
                 </div>
 
-                <div>
-                  <h4 className="mb-1.5 font-medium">Role Summary and Impact</h4>
-                  <p>
-                    This role will contribute to planning, execution, and coordination
-                    across projects. You will work with internal and external stakeholders
-                    to ensure effective delivery and business impact.
-                  </p>
-                </div>
+                {selectedJob.skillTags?.length ? (
+                  <div>
+                    <h4 className="mb-1.5 font-medium">Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedJob.skillTags.map((skill) => (
+                        <span
+                          key={skill}
+                          className={`rounded px-3 py-1 text-[13px] ${
+                            profileTagMatcher.matchesSkill(skill)
+                              ? 'bg-[#DDE400] text-black'
+                              : 'bg-black/10 text-black/65'
+                          }`}
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
-                <div>
-                  <h4 className="mb-1.5 font-medium">Core Responsibilities</h4>
-                  <p>
-                    Develop plans and recommendations, coordinate project execution,
-                    manage daily communication, and support high-quality delivery aligned
-                    with business goals.
-                  </p>
-                </div>
+                {selectedJob.originalSourceSite ? (
+                  <div>
+                    <h4 className="mb-1.5 font-medium">Source</h4>
+                    <p>{selectedJob.originalSourceSite}</p>
+                  </div>
+                ) : null}
               </div>
             </>
           ) : (
@@ -528,6 +699,76 @@ export default function JobsPage() {
           )}
         </div>
       </div>
+
+      {isApplyModalOpen && selectedJob ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-[2px]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="apply-modal-title"
+            className="w-full max-w-[520px] rounded-3xl bg-[#F0EFEA] p-6 text-[#1E1E1D] shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="apply-modal-title" className="text-[24px] font-semibold">
+                  How would you like to prepare?
+                </h3>
+                <p className="mt-2 text-[15px] leading-6 text-black/70">
+                  Choose what to do for {selectedJob.jobTitle || 'this role'} at{' '}
+                  {selectedJob.companyName || 'this company'}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeApplyModal}
+                className="rounded-full border border-black/10 px-3 py-1 text-[14px] text-black/65 transition hover:bg-black/5 hover:text-black"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={handlePrepareResume}
+                className="rounded-2xl bg-[#E7F12E] px-5 py-4 text-left transition hover:opacity-95"
+              >
+                <div className="text-[18px] font-semibold">Prepare Resume</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Open your documents so you can tailor a resume for this job.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrepareCoverLetter}
+                className="rounded-2xl bg-white px-5 py-4 text-left transition hover:bg-black/5"
+              >
+                <div className="text-[18px] font-semibold">Prepare Cover Letter</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Jump to your documents and start drafting a targeted cover letter.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyApplicationLink}
+                className="rounded-2xl border border-black/10 bg-white px-5 py-4 text-left transition hover:bg-black/5"
+              >
+                <div className="text-[18px] font-semibold">Copy Application Link</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Copy the job application URL to your clipboard.
+                </div>
+              </button>
+            </div>
+
+            {copyStatus ? (
+              <p className="mt-4 text-[14px] text-black/65">{copyStatus}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -536,7 +777,10 @@ type FilterSelectProps = {
   label: string
   value: string
   onChange: (value: string) => void
-  options: string[]
+  options: Array<{
+    label: string
+    value: string
+  }>
 }
 
 function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
@@ -548,20 +792,30 @@ function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
     >
       <option value="">{label}</option>
       {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
+        <option key={option.value} value={option.value}>
+          {option.label}
         </option>
       ))}
     </select>
   )
 }
 
-function normalizeDatePosted(datePosted: string) {
-  if (datePosted.includes('1d')) return 'Last 24 hours'
-  if (datePosted.includes('2d') || datePosted.includes('3d') || datePosted.includes('5d')) {
-    return 'Last 7 days'
-  }
-  return 'Last 30 days'
+type FilterInputProps = {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}
+
+function FilterInput({ label, value, onChange }: FilterInputProps) {
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder={label}
+      onChange={(e) => onChange(e.target.value)}
+      className="min-w-[170px] shrink-0 rounded-full bg-[#F0EFEA] px-5 py-3 text-[15px] font-medium text-black outline-none placeholder:text-black/55"
+    />
+  )
 }
 
 function buildPageNumbers(currentPage: number, totalPages: number) {
@@ -578,4 +832,160 @@ function buildPageNumbers(currentPage: number, totalPages: number) {
   }
 
   return [1, '...', currentPage, '...', totalPages] as const
+}
+
+function mapDatePostedToHours(value: string) {
+  if (value === 'Last 24 hours') return 24
+  if (value === 'Last 7 days') return 24 * 7
+  if (value === 'Last 30 days') return 24 * 30
+  return undefined
+}
+
+function formatRelativeDate(value?: string) {
+  if (!value) return 'Unknown'
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  const diffHours = Math.max(1, Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60)))
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`
+  }
+
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays}d ago`
+}
+
+function formatEmploymentLine(employmentType?: string, jobMode?: string) {
+  return [employmentType, jobMode].filter(Boolean).join(' / ') || 'Not specified'
+}
+
+function formatSalary(minSalary?: number, maxSalary?: number) {
+  if (typeof minSalary === 'number' && typeof maxSalary === 'number') {
+    return `${minSalary.toLocaleString()} - ${maxSalary.toLocaleString()}`
+  }
+
+  if (typeof minSalary === 'number') {
+    return `${minSalary.toLocaleString()}+`
+  }
+
+  if (typeof maxSalary === 'number') {
+    return `Up to ${maxSalary.toLocaleString()}`
+  }
+
+  return 'Not specified'
+}
+
+function JobDescription({ description }: { description?: string }) {
+  if (!description) {
+    return <p>No description available for this job yet.</p>
+  }
+
+  const sanitizedHtml = sanitizeJobHtml(description)
+
+  return (
+    <div
+      className="space-y-3 [&_a]:text-black [&_a]:underline [&_a]:underline-offset-2 [&_br]:block [&_br]:content-[''] [&_li]:ml-5 [&_li]:list-disc [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:mb-4 [&_strong]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc"
+      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+    />
+  )
+}
+
+function sanitizeJobHtml(html: string) {
+  if (typeof window === 'undefined') {
+    return html
+  }
+
+  const parser = new DOMParser()
+  const document = parser.parseFromString(html, 'text/html')
+  const blockedTags = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button']
+
+  blockedTags.forEach((tag) => {
+    document.querySelectorAll(tag).forEach((node) => node.remove())
+  })
+
+  document.querySelectorAll('*').forEach((element) => {
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase()
+      const value = attribute.value.trim().toLowerCase()
+
+      if (name.startsWith('on')) {
+        element.removeAttribute(attribute.name)
+      }
+
+      if ((name === 'href' || name === 'src') && value.startsWith('javascript:')) {
+        element.removeAttribute(attribute.name)
+      }
+
+      if (name === 'style') {
+        element.removeAttribute(attribute.name)
+      }
+    })
+  })
+
+  return document.body.innerHTML
+}
+
+type CompanyLogoProps = {
+  src?: string
+  alt: string
+  className: string
+  textClassName: string
+}
+
+function CompanyLogo({ src, alt, className, textClassName }: CompanyLogoProps) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} rounded bg-white object-contain p-1`}
+      />
+    )
+  }
+
+  return (
+    <div
+      className={`${className} flex items-center justify-center rounded bg-[#73736E] font-semibold text-white/75`}
+      aria-hidden="true"
+    >
+      <span className={textClassName}>LOGO</span>
+    </div>
+  )
+}
+
+function buildProfileTagMatcher(profile: UserProfile | null) {
+  const preferences = profile?.preferences
+  const skillSet = buildNormalizedSet((profile?.skills ?? []).map((skill) => skill.name || ''))
+  const industrySet = buildNormalizedSet(preferences?.industries ?? [])
+  const jobFunctionSet = buildNormalizedSet(preferences?.jobFunctions ?? [])
+  const employmentTypeSet = buildNormalizedSet(preferences?.employmentTypes ?? [])
+  const experienceLevelSet = buildNormalizedSet(preferences?.experienceLevels ?? [])
+  const jobModeSet = buildNormalizedSet(preferences?.jobModes ?? [])
+
+  return {
+    matchesSkill: (value?: string) => skillSet.has(normalizeProfileTag(value)),
+    matchesIndustry: (value?: string) => industrySet.has(normalizeProfileTag(value)),
+    matchesJobFunction: (value?: string) => jobFunctionSet.has(normalizeProfileTag(value)),
+    matchesEmploymentType: (value?: string) => employmentTypeSet.has(normalizeProfileTag(value)),
+    matchesExperienceLevel: (value?: string) => experienceLevelSet.has(normalizeProfileTag(value)),
+    matchesJobMode: (value?: string) => jobModeSet.has(normalizeProfileTag(value)),
+  }
+}
+
+function buildNormalizedSet(values: string[]) {
+  return new Set(values.map((value) => normalizeProfileTag(value)).filter(Boolean))
+}
+
+function normalizeProfileTag(value?: string) {
+  return (value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_/]+/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
 }

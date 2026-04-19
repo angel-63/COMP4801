@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Sparkles, Trash2, WandSparkles, Pencil } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { fetchResumeDocument, saveResumeDocument, type ResumeDocument, type ResumeTargetJob } from '../../lib/resumeApi'
+import { improveResumeTextWithAi, reviewResumeWithAi, type ResumeAiImproveResponse, type ResumeAiReviewResponse } from '../../lib/resumeAiApi'
 
 type ResumeLink = {
   id: number
@@ -170,6 +172,8 @@ type ExperienceSectionProps = {
   items: ExperienceItem[]
   onTitleChange: (value: string) => void
   onItemsChange: (items: ExperienceItem[]) => void
+  onResetToProfile?: () => void
+  onAiHelp?: (item: ExperienceItem) => void
 }
 
 function ExperienceSection({
@@ -183,6 +187,8 @@ function ExperienceSection({
   items,
   onTitleChange,
   onItemsChange,
+  onResetToProfile,
+  onAiHelp,
 }: ExperienceSectionProps) {
   return (
     <section className="rounded-md bg-[#666662] p-3">
@@ -199,7 +205,11 @@ function ExperienceSection({
           )}
         </div>
 
-        <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+        <button
+          type="button"
+          onClick={onResetToProfile}
+          className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+        >
           Reset to profile
         </button>
       </div>
@@ -316,7 +326,11 @@ function ExperienceSection({
                 </div>
 
                 <div className="flex flex-col items-end justify-between">
-                  <button className="mt-6 inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10">
+                  <button
+                    type="button"
+                    onClick={() => onAiHelp?.(item)}
+                    className="mt-6 inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10"
+                  >
                     <WandSparkles size={15} />
                     Get help with AI
                   </button>
@@ -447,6 +461,21 @@ const FIRST_PAGE_HEADER_RESERVE = 108
 const FIRST_PAGE_CONTENT_CAPACITY = A4_PAGE_HEIGHT - PREVIEW_PAGE_VERTICAL_PADDING - FIRST_PAGE_HEADER_RESERVE
 const OTHER_PAGE_CONTENT_CAPACITY = A4_PAGE_HEIGHT - PREVIEW_PAGE_VERTICAL_PADDING
 const DEFAULT_PREVIEW_NAME = 'Your Name'
+const RESUMES_STORAGE_KEY = 'documents:resumes'
+const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
+const RESUME_PREP_STORAGE_PREFIX = 'documents:resumePrep:'
+
+function formatProfileMonthYear(value: unknown) {
+  if (typeof value !== 'string' || !value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en', {
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
 
 function getProfileNameFromStorage() {
   if (typeof window === 'undefined') return ''
@@ -477,6 +506,308 @@ function getProfileNameFromStorage() {
   }
 
   return ''
+}
+
+function getProfileSnapshotFromStorage() {
+  if (typeof window === 'undefined') return null
+
+  const candidateKeys = ['userProfile', 'profileData', 'profile', 'flashProfile']
+
+  for (const key of candidateKeys) {
+    const rawValue = window.localStorage.getItem(key)
+    if (!rawValue) continue
+
+    try {
+      return JSON.parse(rawValue)
+    } catch {
+      continue
+    }
+  }
+
+  return null
+}
+
+function buildProfileDerivedName(profile: any) {
+  return (
+    profile?.fullName ||
+    profile?.name ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim()
+  )
+}
+
+function buildProfileLinks(profile: any): ResumeLink[] {
+  if (!Array.isArray(profile?.links) || profile.links.length === 0) {
+    return [{ id: 1, label: 'LinkedIn', url: 'linkedin.com/in/yourname' }]
+  }
+
+  return profile.links.map((link: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    label: String(link.label ?? link.site ?? ''),
+    url: String(link.url ?? ''),
+  }))
+}
+
+function buildProfileEducation(profile: any): EducationItem[] {
+  if (!Array.isArray(profile?.education) || profile.education.length === 0) {
+    return [
+      {
+        id: 1,
+        institution: '',
+        degree: '',
+        startDate: '',
+        endDate: '',
+        fieldOfStudy: '',
+        description: '',
+      },
+    ]
+  }
+
+  return profile.education.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    institution: String(item.institution ?? ''),
+    degree: String(item.degree ?? ''),
+    startDate: formatProfileMonthYear(item.startDate),
+    endDate: formatProfileMonthYear(item.endDate),
+    fieldOfStudy: String(item.fieldOfStudy ?? ''),
+    description: '',
+  }))
+}
+
+function buildProfileSkills(profile: any): SkillItem[] {
+  if (!Array.isArray(profile?.skills) || profile.skills.length === 0) {
+    return [{ id: 1, name: '', proficiency: 'Expert' }]
+  }
+
+  return profile.skills.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    name: String(item.name ?? ''),
+    proficiency: String(item.proficiency ?? 'Expert'),
+  }))
+}
+
+function buildProfileExperiences(profile: any): ExperienceItem[] {
+  if (!Array.isArray(profile?.workExperience) || profile.workExperience.length === 0) {
+    return [
+      {
+        id: 1,
+        title: '',
+        employer: '',
+        startDate: '',
+        endDate: '',
+        location: '',
+        description: '',
+      },
+    ]
+  }
+
+  return profile.workExperience.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    title: String(item.position ?? ''),
+    employer: String(item.company ?? ''),
+    startDate: formatProfileMonthYear(item.startDate),
+    endDate: formatProfileMonthYear(item.endDate),
+    location: String(item.location ?? ''),
+    description: '',
+  }))
+}
+
+function buildProfileProjects(profile: any): ExperienceItem[] {
+  if (!Array.isArray(profile?.projects) || profile.projects.length === 0) {
+    return [
+      {
+        id: 1,
+        title: '',
+        employer: '',
+        startDate: '',
+        endDate: '',
+        location: '',
+        description: '',
+      },
+    ]
+  }
+
+  return profile.projects.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    title: String(item.name ?? ''),
+    employer: String(item.owner ?? ''),
+    startDate: formatProfileMonthYear(item.startDate),
+    endDate: formatProfileMonthYear(item.endDate),
+    location: String(item.location ?? ''),
+    description: String(item.description ?? ''),
+  }))
+}
+
+function buildProfileCertificates(profile: any): CertificateItem[] {
+  if (!Array.isArray(profile?.certificates) || profile.certificates.length === 0) {
+    return [{ id: 1, name: '' }]
+  }
+
+  return profile.certificates.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    name: String(item.name ?? ''),
+  }))
+}
+
+function buildProfileLanguages(profile: any): LanguageItem[] {
+  if (!Array.isArray(profile?.languages) || profile.languages.length === 0) {
+    return [{ id: 1, language: '', proficiency: 'Native speaker' }]
+  }
+
+  return profile.languages.map((item: Record<string, unknown>, index: number) => ({
+    id: index + 1,
+    language: String(item.language ?? ''),
+    proficiency: String(item.proficiency ?? 'Native speaker'),
+  }))
+}
+
+function formatDocumentTimestamp(date = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+function syncStoredResumeMeta(resumeId: string, name: string, updatedAt: string) {
+  if (typeof window === 'undefined') return
+
+  const rawValue = window.localStorage.getItem(RESUMES_STORAGE_KEY)
+  if (!rawValue) return
+
+  try {
+    const items = JSON.parse(rawValue) as Array<{ id: number; name: string; updatedAt: string }>
+    const nextItems = items.map((item) =>
+      String(item.id) === resumeId ? { ...item, name: name || item.name, updatedAt } : item,
+    )
+
+    window.localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(nextItems))
+  } catch {
+    return
+  }
+}
+
+type AiDialogState =
+  | {
+      mode: 'review'
+      loading: boolean
+      error: string | null
+      data: ResumeAiReviewResponse | null
+    }
+  | {
+      mode: 'improve'
+      loading: boolean
+      error: string | null
+      data: ResumeAiImproveResponse | null
+      onApply: ((text: string) => void) | null
+      title: string
+    }
+  | null
+
+function getStoredResumeMetaName(resumeId: string) {
+  if (typeof window === 'undefined' || !resumeId) return ''
+
+  const rawValue = window.localStorage.getItem(RESUMES_STORAGE_KEY)
+  if (!rawValue) return ''
+
+  try {
+    const items = JSON.parse(rawValue) as Array<{ id: number; name: string }>
+    const match = items.find((item) => String(item.id) === resumeId)
+    return match?.name?.trim() || ''
+  } catch {
+    return ''
+  }
+}
+
+function getApplicationPrepContext() {
+  if (typeof window === 'undefined') return null
+
+  const rawValue = window.localStorage.getItem(APPLICATION_PREP_STORAGE_KEY)
+  if (!rawValue) return null
+
+  try {
+    return JSON.parse(rawValue) as {
+      mode?: 'resume' | 'cover-letter'
+      jobId?: string
+      jobTitle?: string
+      companyName?: string
+      employmentType?: string
+      jobMode?: string
+      experienceLevel?: string
+      jobDescription?: string
+      applicationUrl?: string
+      skillTags?: string[]
+    }
+  } catch {
+    return null
+  }
+}
+
+function getStoredResumePrepContext(resumeId: string) {
+  if (typeof window === 'undefined' || !resumeId) return null
+
+  const rawValue = window.localStorage.getItem(`${RESUME_PREP_STORAGE_PREFIX}${resumeId}`)
+  if (!rawValue) return null
+
+  try {
+    return JSON.parse(rawValue) as {
+      mode?: 'resume' | 'cover-letter'
+      jobId?: string
+      jobTitle?: string
+      companyName?: string
+      employmentType?: string
+      jobMode?: string
+      experienceLevel?: string
+      jobDescription?: string
+      applicationUrl?: string
+      skillTags?: string[]
+    }
+  } catch {
+    return null
+  }
+}
+
+function clearApplicationPrepContext() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(APPLICATION_PREP_STORAGE_KEY)
+}
+
+function clearStoredResumePrepContext(resumeId: string) {
+  if (typeof window === 'undefined' || !resumeId) return
+  window.localStorage.removeItem(`${RESUME_PREP_STORAGE_PREFIX}${resumeId}`)
+}
+
+function mapPrepContextToTargetJob(
+  prepContext:
+    | {
+        mode?: 'resume' | 'cover-letter'
+        jobId?: string
+        jobTitle?: string
+        companyName?: string
+        employmentType?: string
+        jobMode?: string
+        experienceLevel?: string
+        jobDescription?: string
+        applicationUrl?: string
+        skillTags?: string[]
+      }
+    | null
+    | undefined,
+) {
+  if (!prepContext || prepContext.mode !== 'resume') return undefined
+
+  return {
+    jobId: prepContext.jobId || '',
+    jobTitle: prepContext.jobTitle || '',
+    companyName: prepContext.companyName || '',
+    employmentType: prepContext.employmentType || '',
+    jobMode: prepContext.jobMode || '',
+    experienceLevel: prepContext.experienceLevel || '',
+    jobDescription: prepContext.jobDescription || '',
+    applicationUrl: prepContext.applicationUrl || '',
+    skillTags: prepContext.skillTags || [],
+  }
 }
 
 function paginateBlocks(
@@ -512,9 +843,16 @@ function paginateBlocks(
 }
 
 export default function ResumeEditorPage() {
+  const { id: resumeId = '' } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [phone, setPhone] = useState('')
   const [location, setLocation] = useState('')
   const [summary, setSummary] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('Last saved at 26 Dec, 19:07')
+  const [targetJob, setTargetJob] = useState<ResumeTargetJob | undefined>(undefined)
+  const [aiDialog, setAiDialog] = useState<AiDialogState>(null)
 
   const [resumeName, setResumeName] = useState('Resume for Function A')
   const [profileName, setProfileName] = useState(DEFAULT_PREVIEW_NAME)
@@ -633,6 +971,225 @@ export default function ResumeEditorPage() {
       setProfileName(storedName)
     }
   }, [])
+
+  useEffect(() => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+
+    const fullName = buildProfileDerivedName(profile)
+
+    if (fullName) {
+      setProfileName(fullName)
+    }
+
+    setPhone(typeof profile?.phone === 'string' ? profile.phone : '')
+    setLocation(typeof profile?.location === 'string' ? profile.location : '')
+    setLinks(buildProfileLinks(profile))
+    setEducation(buildProfileEducation(profile))
+    setSkills(buildProfileSkills(profile))
+    setProfessionalExperiences(buildProfileExperiences(profile))
+    setProjectExperiences(buildProfileProjects(profile))
+    setCertificates(buildProfileCertificates(profile))
+    setLanguages(buildProfileLanguages(profile))
+  }, [])
+
+  useEffect(() => {
+    const prepContext = getApplicationPrepContext()
+    const storedPrepContext = getStoredResumePrepContext(resumeId)
+    const resolvedPrepContext =
+      prepContext?.mode === 'resume' ? prepContext : storedPrepContext
+
+    if (resolvedPrepContext?.mode !== 'resume') return
+
+    setTargetJob(mapPrepContextToTargetJob(resolvedPrepContext))
+
+    if (resolvedPrepContext.jobTitle?.trim()) {
+      setResumeName(`Resume for ${resolvedPrepContext.jobTitle.trim()}`)
+    }
+
+    if (resolvedPrepContext.companyName?.trim()) {
+      setSummary((prev) => {
+        if (prev.trim()) return prev
+        return `Tailored for ${resolvedPrepContext.jobTitle?.trim() || 'this role'} at ${(resolvedPrepContext.companyName || '').trim()}.`
+      })
+    }
+
+    if (prepContext?.mode === 'resume') {
+      clearApplicationPrepContext()
+    }
+  }, [resumeId])
+
+  useEffect(() => {
+    if (!resumeId) return
+
+    const storedResumeName = getStoredResumeMetaName(resumeId)
+    if (storedResumeName) {
+      setResumeName(storedResumeName)
+    }
+  }, [resumeId])
+
+  useEffect(() => {
+    if (!resumeId) return
+
+    const loadResume = async () => {
+      try {
+        const savedResume = await fetchResumeDocument(resumeId)
+
+        setResumeName(savedResume.filename || 'Resume')
+        setProfileName(savedResume.profileName || DEFAULT_PREVIEW_NAME)
+        setPhone(savedResume.phone || '')
+        setLocation(savedResume.location || '')
+        setSummary(savedResume.summary || '')
+
+        if (savedResume.sectionTitles) {
+          setSectionTitles({
+            personalDetails: savedResume.sectionTitles.personalDetails || 'Personal Details',
+            professionalSummary: savedResume.sectionTitles.professionalSummary || 'Professional Summary',
+            educations: savedResume.sectionTitles.educations || 'Educations',
+            skills: savedResume.sectionTitles.skills || 'Skills',
+            professionalExperiences:
+              savedResume.sectionTitles.professionalExperiences || 'Professional Experiences',
+            projectExperiences:
+              savedResume.sectionTitles.projectExperiences || 'Project Experiences',
+            certificates: savedResume.sectionTitles.certificates || 'Certificates',
+            languages: savedResume.sectionTitles.languages || 'Languages',
+          })
+        }
+
+        setLinks(
+          savedResume.links?.length
+            ? savedResume.links.map((link, index) => ({
+                id: index + 1,
+                label: link.label || '',
+                url: link.url || '',
+              }))
+            : [{ id: 1, label: 'LinkedIn', url: 'linkedin.com/in/yourname' }],
+        )
+
+        setEducation(
+          savedResume.education?.length
+            ? savedResume.education.map((item, index) => ({
+                id: index + 1,
+                institution: item.institution || '',
+                degree: item.degree || '',
+                startDate: item.startDate || '',
+                endDate: item.endDate || '',
+                fieldOfStudy: item.fieldOfStudy || '',
+                description: item.description || '',
+              }))
+            : [
+                {
+                  id: 1,
+                  institution: '',
+                  degree: '',
+                  startDate: '',
+                  endDate: '',
+                  fieldOfStudy: '',
+                  description: '',
+                },
+              ],
+        )
+
+        setSkills(
+          savedResume.skills?.length
+            ? savedResume.skills.map((item, index) => ({
+                id: index + 1,
+                name: item.name || '',
+                proficiency: item.proficiency || 'Expert',
+              }))
+            : [{ id: 1, name: '', proficiency: 'Expert' }],
+        )
+
+        setProfessionalExperiences(
+          savedResume.experiences?.length
+            ? savedResume.experiences.map((item, index) => ({
+                id: index + 1,
+                title: item.title || '',
+                employer: item.employer || '',
+                startDate: item.startDate || '',
+                endDate: item.endDate || '',
+                location: item.location || '',
+                description: item.description || '',
+              }))
+            : [
+                {
+                  id: 1,
+                  title: '',
+                  employer: '',
+                  startDate: '',
+                  endDate: '',
+                  location: '',
+                  description: '',
+                },
+              ],
+        )
+
+        setProjectExperiences(
+          savedResume.projects?.length
+            ? savedResume.projects.map((item, index) => ({
+                id: index + 1,
+                title: item.title || '',
+                employer: item.employer || '',
+                startDate: item.startDate || '',
+                endDate: item.endDate || '',
+                location: item.location || '',
+                description: item.description || '',
+              }))
+            : [
+                {
+                  id: 1,
+                  title: '',
+                  employer: '',
+                  startDate: '',
+                  endDate: '',
+                  location: '',
+                  description: '',
+                },
+              ],
+        )
+
+        setCertificates(
+          savedResume.certificates?.length
+            ? savedResume.certificates.map((name, index) => ({
+                id: index + 1,
+                name: name || '',
+              }))
+            : [{ id: 1, name: '' }],
+        )
+
+        setLanguages(
+          savedResume.languages?.length
+            ? savedResume.languages.map((item, index) => ({
+                id: index + 1,
+                language: item.language || '',
+                proficiency: item.proficiency || 'Native speaker',
+              }))
+            : [{ id: 1, language: '', proficiency: 'Native speaker' }],
+        )
+
+        const fallbackPrepTargetJob = mapPrepContextToTargetJob(getStoredResumePrepContext(resumeId))
+        setTargetJob(savedResume.targetJob ?? fallbackPrepTargetJob)
+
+        if (savedResume.updatedAt) {
+          const updatedDate = new Date(savedResume.updatedAt)
+          if (!Number.isNaN(updatedDate.getTime())) {
+            setSaveStatus(`Last saved at ${formatDocumentTimestamp(updatedDate)}`)
+          }
+        }
+      } catch (loadError) {
+        const storedResumeName = getStoredResumeMetaName(resumeId)
+        if (storedResumeName) {
+          setResumeName(storedResumeName)
+        }
+
+        if (!(loadError instanceof Error && loadError.message.includes('404'))) {
+          console.error('Failed to load saved resume.', loadError)
+        }
+      }
+    }
+
+    void loadResume()
+  }, [resumeId])
 
   const previewBlocks = useMemo<PreviewBlock[]>(() => {
     const blocks: PreviewBlock[] = []
@@ -851,8 +1408,277 @@ export default function ResumeEditorPage() {
     }
   }
 
+  const buildResumeDocument = (): ResumeDocument => ({
+    filename: resumeName.trim() || 'Resume',
+    profileName: profileName.trim() || DEFAULT_PREVIEW_NAME,
+    phone: phone.trim(),
+    location: location.trim(),
+    links: previewLinks.map((link) => ({
+      label: link.label.trim(),
+      url: link.url.trim(),
+    })),
+    summary: summary.trim(),
+    education: previewEducation.map((item) => ({
+      institution: item.institution.trim(),
+      degree: item.degree.trim(),
+      startDate: item.startDate.trim(),
+      endDate: item.endDate.trim(),
+      fieldOfStudy: item.fieldOfStudy.trim(),
+      description: item.description.trim(),
+    })),
+    skills: previewSkills.map((item) => ({
+      name: item.name.trim(),
+      proficiency: item.proficiency.trim(),
+    })),
+    experiences: previewProfessionalExperiences.map((item) => ({
+      title: item.title.trim(),
+      employer: item.employer.trim(),
+      startDate: item.startDate.trim(),
+      endDate: item.endDate.trim(),
+      location: item.location.trim(),
+      description: item.description.trim(),
+    })),
+    projects: previewProjectExperiences.map((item) => ({
+      title: item.title.trim(),
+      employer: item.employer.trim(),
+      startDate: item.startDate.trim(),
+      endDate: item.endDate.trim(),
+      location: item.location.trim(),
+      description: item.description.trim(),
+    })),
+    certificates: previewCertificates.map((item) => item.name.trim()),
+    languages: previewLanguages.map((item) => ({
+      language: item.language.trim(),
+      proficiency: item.proficiency.trim(),
+    })),
+    sectionTitles: { ...sectionTitles },
+    targetJob,
+  })
+
+  const handleSave = async () => {
+    if (!resumeId || isSaving) return
+
+    setIsSaving(true)
+
+    try {
+      const savedResume = await saveResumeDocument(resumeId, buildResumeDocument())
+      const updatedAt = savedResume.updatedAt ? new Date(savedResume.updatedAt) : new Date()
+      const formattedTimestamp = formatDocumentTimestamp(updatedAt)
+
+      setResumeName(savedResume.filename || resumeName)
+      setTargetJob(savedResume.targetJob ?? targetJob)
+      setSaveStatus(`Last saved at ${formattedTimestamp}`)
+      syncStoredResumeMeta(resumeId, savedResume.filename || resumeName, formattedTimestamp)
+      if (savedResume.targetJob ?? targetJob) {
+        clearStoredResumePrepContext(resumeId)
+      }
+    } catch (error) {
+      console.error('Resume save failed.', error)
+      window.alert(error instanceof Error ? error.message : 'Failed to save resume.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleResetPersonalDetailsToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+
+    const fullName = buildProfileDerivedName(profile)
+    if (fullName) {
+      setProfileName(fullName)
+    }
+
+    setPhone(typeof profile?.phone === 'string' ? profile.phone : '')
+    setLocation(typeof profile?.location === 'string' ? profile.location : '')
+    setLinks(buildProfileLinks(profile))
+  }
+
+  const handleResetEducationToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setEducation(buildProfileEducation(profile))
+  }
+
+  const handleResetSkillsToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setSkills(buildProfileSkills(profile))
+  }
+
+  const handleResetProfessionalExperiencesToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setProfessionalExperiences(buildProfileExperiences(profile))
+  }
+
+  const handleResetProjectsToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setProjectExperiences(buildProfileProjects(profile))
+  }
+
+  const handleResetCertificatesToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setCertificates(buildProfileCertificates(profile))
+  }
+
+  const handleResetLanguagesToProfile = () => {
+    const profile = getProfileSnapshotFromStorage()
+    if (!profile) return
+    setLanguages(buildProfileLanguages(profile))
+  }
+
+  const closeAiDialog = () => setAiDialog(null)
+
+  const handleReviewWithAi = async () => {
+    const resumeDocument = buildResumeDocument()
+
+    setAiDialog({
+      mode: 'review',
+      loading: true,
+      error: null,
+      data: null,
+    })
+
+    try {
+      const result = await reviewResumeWithAi(resumeDocument)
+      setAiDialog({
+        mode: 'review',
+        loading: false,
+        error: null,
+        data: result,
+      })
+    } catch (error) {
+      setAiDialog({
+        mode: 'review',
+        loading: false,
+        error: error instanceof Error ? error.message : 'Unable to review resume with AI.',
+        data: null,
+      })
+    }
+  }
+
+  const runImproveWithAi = async (input: {
+    title: string
+    sectionType: string
+    currentText: string
+    itemTitle?: string
+    itemSubtitle?: string
+    onApply: (text: string) => void
+  }) => {
+    const resumeDocument = buildResumeDocument()
+
+    setAiDialog({
+      mode: 'improve',
+      loading: true,
+      error: null,
+      data: null,
+      onApply: input.onApply,
+      title: input.title,
+    })
+
+    try {
+      const result = await improveResumeTextWithAi(resumeDocument, {
+        sectionType: input.sectionType,
+        currentText: input.currentText,
+        itemTitle: input.itemTitle,
+        itemSubtitle: input.itemSubtitle,
+      })
+
+      setAiDialog({
+        mode: 'improve',
+        loading: false,
+        error: null,
+        data: result,
+        onApply: input.onApply,
+        title: input.title,
+      })
+    } catch (error) {
+      setAiDialog({
+        mode: 'improve',
+        loading: false,
+        error: error instanceof Error ? error.message : 'Unable to improve this section with AI.',
+        data: null,
+        onApply: input.onApply,
+        title: input.title,
+      })
+    }
+  }
+
+  const handleImproveSummaryWithAi = () =>
+    void runImproveWithAi({
+      title: 'Improve Summary',
+      sectionType: 'summary',
+      currentText: summary,
+      itemTitle: profileName,
+      itemSubtitle: targetJob?.jobTitle,
+      onApply: setSummary,
+    })
+
+  const handleImproveEducationWithAi = (item: EducationItem) =>
+    void runImproveWithAi({
+      title: 'Improve Education Description',
+      sectionType: 'education',
+      currentText: item.description,
+      itemTitle: item.institution,
+      itemSubtitle: item.degree,
+      onApply: (text) =>
+        setEducation((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, description: text } : entry))),
+    })
+
+  const handleImproveExperienceWithAi = (item: ExperienceItem) =>
+    void runImproveWithAi({
+      title: 'Improve Experience Description',
+      sectionType: 'experience',
+      currentText: item.description,
+      itemTitle: item.title,
+      itemSubtitle: item.employer,
+      onApply: (text) =>
+        setProfessionalExperiences((prev) =>
+          prev.map((entry) => (entry.id === item.id ? { ...entry, description: text } : entry)),
+        ),
+    })
+
+  const handleImproveProjectWithAi = (item: ExperienceItem) =>
+    void runImproveWithAi({
+      title: 'Improve Project Description',
+      sectionType: 'project',
+      currentText: item.description,
+      itemTitle: item.title,
+      itemSubtitle: item.employer,
+      onApply: (text) =>
+        setProjectExperiences((prev) =>
+          prev.map((entry) => (entry.id === item.id ? { ...entry, description: text } : entry)),
+        ),
+    })
+
+  const handleBackToDocuments = () => {
+    const shouldLeave = window.confirm(
+      'Please make sure you save your resume before leaving. Go back to Documents anyway?',
+    )
+
+    if (!shouldLeave) return
+
+    navigate('/documents')
+  }
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
   const handleExport = async () => {
+    if (isExporting) return
+
     const payload = buildResumePayload()
+    setIsExporting(true)
 
     try {
       const response = await fetch('/api/resumes/export', {
@@ -864,7 +1690,15 @@ export default function ResumeEditorPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to export resume')
+        const contentType = response.headers.get('Content-Type') || ''
+
+        if (contentType.includes('application/json')) {
+          const errorPayload = (await response.json()) as { message?: string; error?: string }
+          throw new Error(errorPayload.message || errorPayload.error || 'Failed to export resume')
+        }
+
+        const message = await response.text()
+        throw new Error(message || 'Failed to export resume')
       }
 
       const blob = await response.blob()
@@ -877,19 +1711,10 @@ export default function ResumeEditorPage() {
       anchor.remove()
       window.URL.revokeObjectURL(blobUrl)
     } catch (error) {
-      console.error('Export endpoint unavailable, downloading structured payload instead.', error)
-
-      const fallbackBlob = new Blob([JSON.stringify(payload, null, 2)], {
-        type: 'application/json',
-      })
-      const fallbackUrl = window.URL.createObjectURL(fallbackBlob)
-      const anchor = document.createElement('a')
-      anchor.href = fallbackUrl
-      anchor.download = `${payload.personal.name || 'resume'}-payload.json`
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      window.URL.revokeObjectURL(fallbackUrl)
+      console.error('Resume export failed.', error)
+      window.alert(error instanceof Error ? error.message : 'Resume export failed.')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -1111,28 +1936,42 @@ export default function ResumeEditorPage() {
   return (
     <div className="relative min-h-screen bg-[#41413F] text-white">
       <header className="sticky top-0 z-50 flex items-center justify-between bg-[#161616] px-4 py-5 md:px-6">
-        <Link to="/documents" className="flex items-center gap-1">
+        <button type="button" onClick={handleBackToDocuments} className="flex items-center gap-1">
           <span className="text-[34px] font-black italic leading-none tracking-tight text-white">
             Flash
           </span>
           <span className="mb-4 block h-2.5 w-2.5 rounded-full bg-[#E7F12E]" />
-        </Link>
+        </button>
 
         <div className="flex items-center gap-5">
           <p className="hidden text-[14px] text-white/80 md:block">
-            Last saved at 26 Dec, 19:07
+            {isSaving ? 'Saving resume...' : isExporting ? 'Exporting PDF...' : saveStatus}
           </p>
 
-          <button className="rounded-md bg-[#E7F12E] px-8 py-3 text-[18px] font-semibold text-black transition hover:opacity-95">
-            Save
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`rounded-md px-8 py-3 text-[18px] font-semibold text-black transition ${
+              isSaving
+                ? 'cursor-wait bg-[#D6D27A] opacity-90'
+                : 'bg-[#E7F12E] hover:opacity-95'
+            }`}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
 
           <button
             type="button"
             onClick={handleExport}
-            className="rounded-md bg-[#E7F12E] px-8 py-3 text-[18px] font-semibold text-black transition hover:opacity-95"
+            disabled={isExporting}
+            className={`rounded-md px-8 py-3 text-[18px] font-semibold text-black transition ${
+              isExporting
+                ? 'cursor-wait bg-[#D6D27A] opacity-90'
+                : 'bg-[#E7F12E] hover:opacity-95'
+            }`}
           >
-            Export
+            {isExporting ? 'Exporting...' : 'Export'}
           </button>
         </div>
       </header>
@@ -1163,13 +2002,14 @@ export default function ResumeEditorPage() {
 
       <main className="grid w-full items-start gap-6 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(620px,0.95fr)]">
         <section className="min-w-0">
-          <Link
-            to="/documents"
+          <button
+            type="button"
+            onClick={handleBackToDocuments}
             className="mb-4 inline-flex items-center gap-2 text-[14px] text-white/85 transition hover:text-white"
           >
             <ChevronLeft size={18} />
             Back
-          </Link>
+          </button>
 
           <div className="mb-4 flex items-center justify-between gap-4">
             <EditableHeading
@@ -1179,7 +2019,11 @@ export default function ResumeEditorPage() {
               inputClassName="rounded bg-transparent px-1 text-[24px] font-semibold text-[#6F6DFF] outline-none ring-1 ring-[#6F6DFF]"
             />
 
-            <button className="inline-flex items-center gap-2 rounded-full bg-[#E7F12E] px-5 py-2 text-[16px] font-medium text-black transition hover:opacity-95">
+            <button
+              type="button"
+              onClick={handleReviewWithAi}
+              className="inline-flex items-center gap-2 rounded-full bg-[#E7F12E] px-5 py-2 text-[16px] font-medium text-black transition hover:opacity-95"
+            >
               <Sparkles size={16} />
               Review with AI
             </button>
@@ -1200,7 +2044,11 @@ export default function ResumeEditorPage() {
                   <span className="text-[12px] font-normal text-white/55">(Optional)</span>
                 </div>
 
-                <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+                <button
+                  type="button"
+                  onClick={handleResetPersonalDetailsToProfile}
+                  className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+                >
                   Reset to profile
                 </button>
               </div>
@@ -1301,7 +2149,11 @@ export default function ResumeEditorPage() {
                   <span className="text-[12px] font-normal text-white/55">(Optional)</span>
                 </div>
 
-                <button className="inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10">
+                <button
+                  type="button"
+                  onClick={handleImproveSummaryWithAi}
+                  className="inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10"
+                >
                   <WandSparkles size={15} />
                   Get help with AI
                 </button>
@@ -1327,7 +2179,11 @@ export default function ResumeEditorPage() {
                   inputClassName="rounded bg-transparent px-1 text-[18px] font-semibold text-white outline-none ring-1 ring-white/40"
                 />
 
-                <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+                <button
+                  type="button"
+                  onClick={handleResetEducationToProfile}
+                  className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+                >
                   Reset to profile
                 </button>
               </div>
@@ -1444,7 +2300,11 @@ export default function ResumeEditorPage() {
                         </div>
 
                         <div className="flex flex-col items-end justify-between">
-                          <button className="mt-6 inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10">
+                          <button
+                            type="button"
+                            onClick={() => handleImproveEducationWithAi(item)}
+                            className="mt-6 inline-flex items-center gap-2 rounded-full border-[3px] border-[#E7F12E] px-4 py-1.5 text-[15px] font-medium text-[#E7F12E] transition hover:bg-[#E7F12E]/10"
+                          >
                             <WandSparkles size={15} />
                             Get help with AI
                           </button>
@@ -1498,7 +2358,11 @@ export default function ResumeEditorPage() {
                   inputClassName="rounded bg-transparent px-1 text-[18px] font-semibold text-white outline-none ring-1 ring-white/40"
                 />
 
-                <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+                <button
+                  type="button"
+                  onClick={handleResetSkillsToProfile}
+                  className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+                >
                   Reset to profile
                 </button>
               </div>
@@ -1588,6 +2452,8 @@ export default function ResumeEditorPage() {
               }
               items={professionalExperiences}
               onItemsChange={setProfessionalExperiences}
+              onResetToProfile={handleResetProfessionalExperiencesToProfile}
+              onAiHelp={handleImproveExperienceWithAi}
             />
 
             <ExperienceSection
@@ -1603,6 +2469,8 @@ export default function ResumeEditorPage() {
               }
               items={projectExperiences}
               onItemsChange={setProjectExperiences}
+              onResetToProfile={handleResetProjectsToProfile}
+              onAiHelp={handleImproveProjectWithAi}
             />
 
             <section className="rounded-md bg-[#666662] p-3">
@@ -1619,7 +2487,11 @@ export default function ResumeEditorPage() {
                   <span className="text-[12px] font-normal text-white/55">(Optional)</span>
                 </div>
 
-                <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+                <button
+                  type="button"
+                  onClick={handleResetCertificatesToProfile}
+                  className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+                >
                   Reset to profile
                 </button>
               </div>
@@ -1679,7 +2551,11 @@ export default function ResumeEditorPage() {
                   inputClassName="rounded bg-transparent px-1 text-[18px] font-semibold text-white outline-none ring-1 ring-white/40"
                 />
 
-                <button className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95">
+                <button
+                  type="button"
+                  onClick={handleResetLanguagesToProfile}
+                  className="rounded-md bg-[#E7F12E] px-3 py-1 text-[13px] font-medium text-black transition hover:opacity-95"
+                >
                   Reset to profile
                 </button>
               </div>
@@ -1858,6 +2734,124 @@ export default function ResumeEditorPage() {
           </div>
         </section>
       </main>
+
+      {aiDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-[760px] rounded-3xl bg-[#F0EFEA] p-6 text-[#1E1E1D] shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[24px] font-semibold">
+                  {aiDialog.mode === 'review' ? 'AI Resume Review' : aiDialog.title}
+                </h3>
+                {targetJob ? (
+                  <p className="mt-2 text-[15px] leading-6 text-black/70">
+                    Tailored against {targetJob.jobTitle} at {targetJob.companyName}.
+                  </p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAiDialog}
+                className="rounded-full border border-black/10 px-3 py-1 text-[14px] text-black/65 transition hover:bg-black/5 hover:text-black"
+              >
+                Close
+              </button>
+            </div>
+
+            {aiDialog.loading ? (
+              <div className="mt-6 rounded-2xl bg-white px-5 py-6 text-[15px] text-black/70">
+                AI is reviewing your resume...
+              </div>
+            ) : aiDialog.error ? (
+              <div className="mt-6 rounded-2xl bg-white px-5 py-6 text-[15px] text-red-500">
+                {aiDialog.error}
+              </div>
+            ) : aiDialog.mode === 'review' && aiDialog.data ? (
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl bg-white p-5">
+                  <h4 className="text-[17px] font-semibold">Overall Assessment</h4>
+                  <p className="mt-2 text-[15px] leading-7 text-black/75">{aiDialog.data.overallAssessment}</p>
+                </div>
+
+                <AiListCard title="Strengths" items={aiDialog.data.strengths} />
+                <AiListCard title="Improvements" items={aiDialog.data.improvements} />
+                <AiListCard title="Priority Changes" items={aiDialog.data.priorityChanges} />
+
+                {aiDialog.data.tailoredSummary ? (
+                  <div className="rounded-2xl bg-white p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h4 className="text-[17px] font-semibold">Suggested Summary</h4>
+                        <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-black/75">
+                          {aiDialog.data.tailoredSummary}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSummary(aiDialog.data?.tailoredSummary || '')
+                          closeAiDialog()
+                        }}
+                        className="shrink-0 rounded-md bg-[#E7F12E] px-4 py-2 text-[14px] font-semibold text-black transition hover:opacity-95"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : aiDialog.mode === 'improve' && aiDialog.data ? (
+              <div className="mt-6 space-y-4">
+                <div className="rounded-2xl bg-white p-5">
+                  <h4 className="text-[17px] font-semibold">Suggested Rewrite</h4>
+                  <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-black/75">
+                    {aiDialog.data.improvedText}
+                  </p>
+                </div>
+
+                <AiListCard title="Why this helps" items={aiDialog.data.notes} />
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={closeAiDialog}
+                    className="rounded-md border border-black/10 px-4 py-2 text-[14px] font-semibold text-black/70 transition hover:bg-black/5"
+                  >
+                    Keep current text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      aiDialog.onApply?.(aiDialog.data?.improvedText || '')
+                      closeAiDialog()
+                    }}
+                    className="rounded-md bg-[#E7F12E] px-4 py-2 text-[14px] font-semibold text-black transition hover:opacity-95"
+                  >
+                    Apply suggestion
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AiListCard({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null
+
+  return (
+    <div className="rounded-2xl bg-white p-5">
+      <h4 className="text-[17px] font-semibold">{title}</h4>
+      <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-7 text-black/75">
+        {items.map((item, index) => (
+          <li key={`${title}-${index}`}>{item}</li>
+        ))}
+      </ul>
     </div>
   )
 }

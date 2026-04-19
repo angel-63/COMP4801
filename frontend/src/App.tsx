@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import RegistrationSteps from "./pages/onboarding/RegistrationSteps"
 import JobsPage from './pages/app/JobsPage'
 import MatchesPage from './pages/app/MatchesPage'
 import DocumentsPage from './pages/app/DocumentsPage'
@@ -16,6 +17,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/onboarding" element={<RegistrationSteps />} />
 
       <Route element={<AppLayout />}>
         <Route path="/matches" element={<MatchesPage />} />

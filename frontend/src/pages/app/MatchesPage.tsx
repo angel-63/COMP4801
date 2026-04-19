@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Bookmark,
+  BookmarkCheck,
   ChevronLeft,
   ChevronRight,
   Check,
   ThumbsUp,
   ThumbsDown,
-  BriefcaseBusiness,
   BadgeDollarSign,
   TrendingUp,
   Eye,
 } from 'lucide-react'
+import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
 
 type MatchJob = {
   id: number
@@ -29,57 +31,152 @@ type MatchJob = {
 const matches: MatchJob[] = [
   {
     id: 1,
-    title: 'Job title',
-    company: 'Company name',
-    salary: '16k',
-    level: 'Junior',
-    mode: 'On-site',
+    title: 'Product Designer',
+    company: 'Notion',
+    salary: 'HK$28k - HK$36k',
+    level: 'Mid',
+    mode: 'Hybrid',
     type: 'Full time',
-    tags: ['Industry', 'Function', 'Keywords', 'Keywords'],
+    tags: ['SaaS', 'Design', 'Figma', 'Design Systems'],
     description:
       'WPP is the creative transformation company. We use the power of creativity to build better futures for our people, planet, clients and communities. WPP Media is WPP’s global media collective. In a world where media is everywhere and in everything, we bring the best platform, people, and partners together to create limitless opportunities for growth.',
-    explanation: ['Job type as Full time', 'Job function as Designer'],
+    explanation: [
+      'Strong match with UI/UX and interaction design experience',
+      'Design systems and cross-functional collaboration align well',
+      'Hybrid work preference is compatible with your profile',
+    ],
   },
   {
     id: 2,
-    title: 'UI Designer',
-    company: 'Meta',
-    salary: '20k',
-    level: 'Mid',
+    title: 'Frontend Engineer',
+    company: 'Stripe',
+    salary: 'HK$35k - HK$48k',
+    level: 'Mid-Senior',
     mode: 'Remote',
     type: 'Full time',
-    tags: ['Design', 'Function', 'Figma', 'Keywords'],
+    tags: ['Fintech', 'Engineering', 'React', 'TypeScript'],
     description:
       'You will design intuitive interfaces across web and mobile products, work with engineers and product managers, and contribute to design system consistency.',
-    explanation: ['Strong UI/UX skill match', 'Remote preference matched'],
+    explanation: [
+      'React and TypeScript experience map directly to the role',
+      'Remote setup matches your preferred work mode',
+      'Frontend architecture and product delivery are highlighted strengths',
+    ],
   },
   {
     id: 3,
-    title: 'Product Associate',
+    title: 'Associate Product Manager',
     company: 'Airbnb',
-    salary: '18k',
+    salary: 'HK$26k - HK$34k',
+    level: 'Junior-Mid',
+    mode: 'On-site',
+    type: 'Full time',
+    tags: ['Marketplace', 'Product', 'Analytics', 'Roadmapping'],
+    description:
+      'Support product research, feature planning, backlog refinement, and stakeholder communication in a fast-moving cross-functional team.',
+    explanation: [
+      'Product planning and stakeholder coordination fit your background',
+      'Early-career scope matches your experience level',
+      'Analytics and roadmap exposure are relevant to your profile',
+    ],
+  },
+  {
+    id: 4,
+    title: 'Brand & Visual Designer',
+    company: 'Canva',
+    salary: 'HK$24k - HK$32k',
+    level: 'Mid',
+    mode: 'Remote',
+    type: 'Contract',
+    tags: ['Creative', 'Brand', 'Illustration', 'Campaigns'],
+    description:
+      'Create campaign visuals, landing assets, and social creative that translate brand strategy into high-performing design. You will collaborate with marketers, copywriters, and product storytellers to keep visual language cohesive across channels.',
+    explanation: [
+      'Visual storytelling and campaign design align with your portfolio',
+      'Remote contract format offers flexible short-term work',
+      'Creative direction and execution both match your strengths',
+    ],
+  },
+  {
+    id: 5,
+    title: 'UX Research Coordinator',
+    company: 'Shopify',
+    salary: 'HK$22k - HK$29k',
     level: 'Junior',
     mode: 'Hybrid',
     type: 'Full time',
-    tags: ['Product', 'Function', 'Strategy', 'Keywords'],
+    tags: ['Research', 'UX', 'Operations', 'Insight Synthesis'],
     description:
-      'Support product research, feature planning, backlog refinement, and stakeholder communication in a fast-moving cross-functional team.',
-    explanation: ['Experience level as Junior', 'Hybrid work mode matched'],
+      'Coordinate participant recruitment, research logistics, interview notes, and insight synthesis for multiple product teams. This role is ideal for someone who enjoys structure, empathy-driven work, and turning qualitative signals into actionable findings.',
+    explanation: [
+      'Research support and communication-heavy work fit your profile',
+      'Strong potential entry point into UX and product work',
+      'Hybrid collaboration pattern aligns with your work preferences',
+    ],
+  },
+  {
+    id: 6,
+    title: 'Growth Marketing Designer',
+    company: 'Duolingo',
+    salary: 'HK$25k - HK$33k',
+    level: 'Mid',
+    mode: 'Remote',
+    type: 'Full time',
+    tags: ['Growth', 'Marketing', 'Creative Testing', 'Motion'],
+    description:
+      'Design performance creatives, paid social assets, and experiment-ready concepts for acquisition campaigns. You will work closely with growth marketers to test messaging, visual directions, and lightweight motion to improve conversion.',
+    explanation: [
+      'Marketing design and experimentation are a strong overlap',
+      'Fast iteration and creative testing suit your workflow',
+      'Remote full-time format is aligned with your current preference',
+    ],
   },
 ]
 
 const swipeConfidenceThreshold = 12000
 const swipePower = (offset: number, velocity: number) =>
   Math.abs(offset) * velocity
+const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
 
 export default function MatchesPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(0)
   const [feedback, setFeedback] = useState<Record<number, 'yes' | 'no'>>({})
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<string | null>(null)
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([])
 
   const totalSlides = matches.length + 1
   const isEnd = index >= matches.length
   const currentJob = useMemo(() => matches[index], [index])
+
+  useEffect(() => {
+    const syncSavedJobs = async () => {
+      const items = await readSavedJobs()
+      setSavedJobIds(items.map((job) => job.id))
+    }
+
+    void syncSavedJobs()
+    return subscribeToSavedJobs(() => {
+      void syncSavedJobs()
+    })
+  }, [])
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search)
+    const requestedJobId = query.get('savedJobId')
+
+    if (!requestedJobId) {
+      return
+    }
+
+    const nextIndex = matches.findIndex((job) => String(job.id) === requestedJobId)
+    if (nextIndex >= 0) {
+      setIndex(nextIndex)
+    }
+  }, [location.search])
 
   const paginate = (newDirection: number) => {
     if (newDirection > 0) {
@@ -99,6 +196,71 @@ export default function MatchesPage() {
     }))
   }
 
+  const openApplyModal = () => {
+    setCopyStatus(null)
+    setIsApplyModalOpen(true)
+  }
+
+  const closeApplyModal = () => {
+    setCopyStatus(null)
+    setIsApplyModalOpen(false)
+  }
+
+  const toggleSaved = async () => {
+    if (!currentJob) return
+
+    const nextItems = await toggleSavedJob({
+      id: String(currentJob.id),
+      title: currentJob.title,
+      companyName: currentJob.company,
+      employmentType: currentJob.type,
+      jobMode: currentJob.mode,
+      experienceLevel: currentJob.level,
+      description: currentJob.description,
+      tags: currentJob.tags,
+      savedAt: new Date().toISOString(),
+      source: 'matches',
+    })
+    setSavedJobIds(nextItems.map((item) => item.id))
+  }
+
+  const storeApplicationPrepContext = (mode: 'resume' | 'cover-letter') => {
+    if (!currentJob) return
+
+    window.localStorage.setItem(
+      APPLICATION_PREP_STORAGE_KEY,
+      JSON.stringify({
+        mode,
+        jobId: String(currentJob.id),
+        jobTitle: currentJob.title,
+        companyName: currentJob.company,
+        employmentType: currentJob.type,
+        jobMode: currentJob.mode,
+        experienceLevel: currentJob.level,
+        jobDescription: currentJob.description,
+        applicationUrl: '',
+        skillTags: currentJob.tags,
+        savedAt: new Date().toISOString(),
+      }),
+    )
+  }
+
+  const handlePrepareResume = () => {
+    storeApplicationPrepContext('resume')
+    closeApplyModal()
+    navigate('/documents')
+  }
+
+  const handlePrepareCoverLetter = () => {
+    storeApplicationPrepContext('cover-letter')
+    closeApplyModal()
+    navigate('/documents')
+  }
+
+  const handleCopyApplicationLink = async () => {
+    setCopyStatus('No application link is available for this match.')
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') paginate(1)
@@ -108,6 +270,8 @@ export default function MatchesPage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  const isSaved = currentJob ? savedJobIds.includes(String(currentJob.id)) : false
 
   return (
     <div className="relative mx-auto flex min-h-[calc(100vh-120px)] max-w-[1100px] flex-col items-center">
@@ -281,11 +445,24 @@ export default function MatchesPage() {
                     </div>
 
                     <div className="flex gap-3">
-                      <button className="min-w-[120px] rounded-md bg-[#E7F12E] px-5 py-2.5 text-[16px] font-semibold text-black transition hover:opacity-95">
+                      <button
+                        type="button"
+                        onClick={openApplyModal}
+                        className="min-w-[120px] rounded-md bg-[#E7F12E] px-5 py-2.5 text-[16px] font-semibold text-black transition hover:opacity-95"
+                      >
                         Apply
                       </button>
-                      <button className="min-w-[120px] rounded-md border-[3px] border-black/20 px-5 py-2.5 text-[16px] font-semibold text-black/35 transition hover:border-black/35 hover:text-black/55">
-                        Save
+                      <button
+                        type="button"
+                        onClick={() => void toggleSaved()}
+                        className={`inline-flex min-w-[120px] items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[16px] font-semibold transition ${
+                          isSaved
+                            ? 'border-[3px] border-black/10 bg-black/20 text-black/45'
+                            : 'border-[3px] border-black/20 text-black/35 hover:border-black/35 hover:text-black/55'
+                        }`}
+                      >
+                        {isSaved ? <BookmarkCheck size={18} className="text-[#E7F12E]" /> : <Bookmark size={18} />}
+                        {isSaved ? 'Saved' : 'Save'}
                       </button>
                     </div>
                   </div>
@@ -398,6 +575,66 @@ export default function MatchesPage() {
           Next
         </button>
       </div>
+
+      {isApplyModalOpen && currentJob ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-[520px] rounded-3xl bg-[#F0EFEA] p-6 text-[#1E1E1D] shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[24px] font-semibold">How would you like to prepare?</h3>
+                <p className="mt-2 text-[15px] leading-6 text-black/70">
+                  Choose what to do for {currentJob.title} at {currentJob.company}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeApplyModal}
+                className="rounded-full border border-black/10 px-3 py-1 text-[14px] text-black/65 transition hover:bg-black/5 hover:text-black"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                onClick={handlePrepareResume}
+                className="rounded-2xl bg-[#E7F12E] px-5 py-4 text-left transition hover:opacity-95"
+              >
+                <div className="text-[18px] font-semibold">Prepare Resume</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Open your documents and tailor a resume for this match.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrepareCoverLetter}
+                className="rounded-2xl bg-white px-5 py-4 text-left transition hover:bg-black/5"
+              >
+                <div className="text-[18px] font-semibold">Prepare Cover Letter</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Start a targeted cover letter draft for this match.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyApplicationLink}
+                className="rounded-2xl border border-black/10 bg-white px-5 py-4 text-left transition hover:bg-black/5"
+              >
+                <div className="text-[18px] font-semibold">Copy Application Link</div>
+                <div className="mt-1 text-[14px] text-black/70">
+                  Copy the application link when one is available.
+                </div>
+              </button>
+            </div>
+
+            {copyStatus ? <p className="mt-4 text-[14px] text-black/65">{copyStatus}</p> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

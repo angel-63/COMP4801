@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Copy, FileText, FileType, Trash2 } from 'lucide-react'
+import { Copy, FileText, Trash2 } from 'lucide-react'
+import { fetchResumeDocument, saveResumeDocument, type ResumeDocument } from '../../lib/resumeApi'
 
 type ResumeItem = {
   id: number
@@ -20,6 +21,20 @@ type TabType = 'resume' | 'cover-letter'
 const MAX_DOCUMENTS_PER_TYPE = 3
 const RESUMES_STORAGE_KEY = 'documents:resumes'
 const COVER_LETTERS_STORAGE_KEY = 'documents:coverLetters'
+const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
+const RESUME_PREP_STORAGE_PREFIX = 'documents:resumePrep:'
+const COVER_LETTER_PREP_STORAGE_PREFIX = 'documents:coverLetterPrep:'
+const DEFAULT_PREVIEW_NAME = 'Your Name'
+const DEFAULT_SECTION_TITLES = {
+  personalDetails: 'Personal Details',
+  professionalSummary: 'Professional Summary',
+  educations: 'Educations',
+  skills: 'Skills',
+  professionalExperiences: 'Professional Experiences',
+  projectExperiences: 'Project Experiences',
+  certificates: 'Certificates',
+  languages: 'Languages',
+} as const
 
 const defaultResumeData: ResumeItem[] = [
   {
@@ -81,9 +96,289 @@ function getNextDocumentName(items: { name: string }[], baseName: string) {
   return candidate
 }
 
+function getPreferredDocumentsTab(): TabType {
+  if (typeof window === 'undefined') return 'resume'
+
+  const rawValue = window.localStorage.getItem(APPLICATION_PREP_STORAGE_KEY)
+  if (!rawValue) return 'resume'
+
+  try {
+    const parsed = JSON.parse(rawValue) as { mode?: string }
+    return parsed.mode === 'cover-letter' ? 'cover-letter' : 'resume'
+  } catch {
+    return 'resume'
+  }
+}
+
+function getApplicationPrepIntent() {
+  if (typeof window === 'undefined') return null
+
+  const rawValue = window.localStorage.getItem(APPLICATION_PREP_STORAGE_KEY)
+  if (!rawValue) return null
+
+  try {
+    return JSON.parse(rawValue) as {
+      mode?: 'resume' | 'cover-letter'
+      jobTitle?: string
+      companyName?: string
+      applicationUrl?: string
+    }
+  } catch {
+    return null
+  }
+}
+
+function clearApplicationPrepIntent() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(APPLICATION_PREP_STORAGE_KEY)
+}
+
+function storeResumePrepIntent(resumeId: number, prepIntent: unknown) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(
+    `${RESUME_PREP_STORAGE_PREFIX}${resumeId}`,
+    JSON.stringify(prepIntent),
+  )
+}
+
+function storeCoverLetterPrepIntent(coverLetterId: number, prepIntent: unknown) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(
+    `${COVER_LETTER_PREP_STORAGE_PREFIX}${coverLetterId}`,
+    JSON.stringify(prepIntent),
+  )
+}
+
+function splitDescriptionToBullets(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function formatProfileMonthYear(value: unknown) {
+  if (typeof value !== 'string' || !value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en', {
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getProfileSnapshotFromStorage() {
+  if (typeof window === 'undefined') return null
+
+  const candidateKeys = ['userProfile', 'profileData', 'profile', 'flashProfile']
+
+  for (const key of candidateKeys) {
+    const rawValue = window.localStorage.getItem(key)
+    if (!rawValue) continue
+
+    try {
+      return JSON.parse(rawValue)
+    } catch {
+      continue
+    }
+  }
+
+  return null
+}
+
+function buildProfileDerivedName(profile: any) {
+  return (
+    profile?.fullName ||
+    profile?.name ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim()
+  )
+}
+
+function buildInitialResumeDocument(
+  resumeName: string,
+  prepIntent?: {
+    jobId?: string
+    jobTitle?: string
+    companyName?: string
+    employmentType?: string
+    jobMode?: string
+    experienceLevel?: string
+    jobDescription?: string
+    applicationUrl?: string
+    skillTags?: string[]
+  } | null,
+): ResumeDocument {
+  const profile = getProfileSnapshotFromStorage()
+  const profileName = buildProfileDerivedName(profile) || DEFAULT_PREVIEW_NAME
+
+  return {
+    filename: resumeName.trim() || 'Resume',
+    profileName,
+    phone: typeof profile?.phone === 'string' ? profile.phone : '',
+    location: typeof profile?.location === 'string' ? profile.location : '',
+    links: Array.isArray(profile?.links)
+      ? profile.links
+          .map((link: Record<string, unknown>) => ({
+            label: String(link.label ?? link.site ?? ''),
+            url: String(link.url ?? ''),
+          }))
+          .filter((link: { label: string; url: string }) => link.label.trim() || link.url.trim())
+      : [],
+    summary:
+      prepIntent?.companyName?.trim()
+        ? `Tailored for ${prepIntent.jobTitle?.trim() || 'this role'} at ${prepIntent.companyName.trim()}.`
+        : '',
+    education: Array.isArray(profile?.education)
+      ? profile.education.map((item: Record<string, unknown>) => ({
+          institution: String(item.institution ?? ''),
+          degree: String(item.degree ?? ''),
+          startDate: formatProfileMonthYear(item.startDate),
+          endDate: formatProfileMonthYear(item.endDate),
+          fieldOfStudy: String(item.fieldOfStudy ?? ''),
+          description: '',
+        }))
+      : [],
+    skills: Array.isArray(profile?.skills)
+      ? profile.skills.map((item: Record<string, unknown>) => ({
+          name: String(item.name ?? ''),
+          proficiency: String(item.proficiency ?? 'Expert'),
+        }))
+      : [],
+    experiences: Array.isArray(profile?.workExperience)
+      ? profile.workExperience.map((item: Record<string, unknown>) => ({
+          title: String(item.position ?? ''),
+          employer: String(item.company ?? ''),
+          startDate: formatProfileMonthYear(item.startDate),
+          endDate: formatProfileMonthYear(item.endDate),
+          location: String(item.location ?? ''),
+          description: '',
+        }))
+      : [],
+    projects: Array.isArray(profile?.projects)
+      ? profile.projects.map((item: Record<string, unknown>) => ({
+          title: String(item.name ?? ''),
+          employer: String(item.owner ?? ''),
+          startDate: formatProfileMonthYear(item.startDate),
+          endDate: formatProfileMonthYear(item.endDate),
+          location: String(item.location ?? ''),
+          description: String(item.description ?? ''),
+        }))
+      : [],
+    certificates: Array.isArray(profile?.certificates)
+      ? profile.certificates.map((item: Record<string, unknown>) => String(item.name ?? '')).filter(Boolean)
+      : [],
+    languages: Array.isArray(profile?.languages)
+      ? profile.languages.map((item: Record<string, unknown>) => ({
+          language: String(item.language ?? ''),
+          proficiency: String(item.proficiency ?? 'Native speaker'),
+        }))
+      : [],
+    sectionTitles: { ...DEFAULT_SECTION_TITLES },
+    targetJob: prepIntent
+      ? {
+          jobId: prepIntent.jobId || '',
+          jobTitle: prepIntent.jobTitle || '',
+          companyName: prepIntent.companyName || '',
+          employmentType: prepIntent.employmentType || '',
+          jobMode: prepIntent.jobMode || '',
+          experienceLevel: prepIntent.experienceLevel || '',
+          jobDescription: prepIntent.jobDescription || '',
+          applicationUrl: prepIntent.applicationUrl || '',
+          skillTags: prepIntent.skillTags || [],
+        }
+      : undefined,
+  }
+}
+
+function buildExportPayload(resume: ResumeDocument) {
+  return {
+    meta: {
+      resumeName: resume.filename.trim() || 'Resume',
+      exportFormat: 'pdf' as const,
+    },
+    personal: {
+      name: resume.profileName.trim() || DEFAULT_PREVIEW_NAME,
+      phone: resume.phone.trim(),
+      location: resume.location.trim(),
+      links: resume.links
+        .filter((link) => link.label.trim() || link.url.trim())
+        .map((link) => ({
+          label: link.label.trim(),
+          url: link.url.trim(),
+        })),
+      summary: resume.summary.trim(),
+    },
+    education: resume.education
+      .filter(
+        (item) =>
+          item.institution.trim() ||
+          item.degree.trim() ||
+          item.startDate.trim() ||
+          item.endDate.trim() ||
+          item.fieldOfStudy.trim() ||
+          item.description.trim(),
+      )
+      .map((item) => ({
+        institution: item.institution.trim(),
+        degree: item.degree.trim(),
+        startDate: item.startDate.trim(),
+        endDate: item.endDate.trim(),
+        fieldOfStudy: item.fieldOfStudy.trim(),
+        bullets: splitDescriptionToBullets(item.description),
+      })),
+    skills: resume.skills
+      .filter((item) => item.name.trim())
+      .map((item) => ({
+        name: item.name.trim(),
+        proficiency: item.proficiency.trim(),
+      })),
+    experiences: resume.experiences
+      .filter(
+        (item) =>
+          item.title.trim() ||
+          item.employer.trim() ||
+          item.location.trim() ||
+          item.description.trim(),
+      )
+      .map((item) => ({
+        title: item.title.trim(),
+        employer: item.employer.trim(),
+        startDate: item.startDate.trim(),
+        endDate: item.endDate.trim(),
+        location: item.location.trim(),
+        bullets: splitDescriptionToBullets(item.description),
+      })),
+    projects: resume.projects
+      .filter(
+        (item) =>
+          item.title.trim() ||
+          item.employer.trim() ||
+          item.location.trim() ||
+          item.description.trim(),
+      )
+      .map((item) => ({
+        title: item.title.trim(),
+        employer: item.employer.trim(),
+        startDate: item.startDate.trim(),
+        endDate: item.endDate.trim(),
+        location: item.location.trim(),
+        bullets: splitDescriptionToBullets(item.description),
+      })),
+    certificates: resume.certificates.filter((item) => item.trim()).map((item) => item.trim()),
+    languages: resume.languages
+      .filter((item) => item.language.trim())
+      .map((item) => ({
+        language: item.language.trim(),
+        proficiency: item.proficiency.trim(),
+      })),
+    sectionTitles: { ...resume.sectionTitles },
+  }
+}
+
 export default function DocumentsPage() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<TabType>('resume')
+  const [activeTab, setActiveTab] = useState<TabType>(() => getPreferredDocumentsTab())
   const [resumes, setResumes] = useState<ResumeItem[]>(() =>
     readStoredItems(RESUMES_STORAGE_KEY, defaultResumeData),
   )
@@ -93,6 +388,30 @@ export default function DocumentsPage() {
   const [selectedResumeId, setSelectedResumeId] = useState<number>(
     () => readStoredItems(RESUMES_STORAGE_KEY, defaultResumeData)[0]?.id ?? 1,
   )
+  const [busyResumeActionId, setBusyResumeActionId] = useState<number | null>(null)
+  const [resumePreviews, setResumePreviews] = useState<Record<number, ResumeDocument>>({})
+
+  const createInitialResumeRecord = async (
+    id: number,
+    name: string,
+    prepIntent?: {
+      jobId?: string
+      jobTitle?: string
+      companyName?: string
+      employmentType?: string
+      jobMode?: string
+      experienceLevel?: string
+      jobDescription?: string
+      applicationUrl?: string
+      skillTags?: string[]
+    } | null,
+  ) => {
+    try {
+      await saveResumeDocument(String(id), buildInitialResumeDocument(name, prepIntent))
+    } catch (error) {
+      console.error('Failed to create initial resume record.', error)
+    }
+  }
 
   useEffect(() => {
     window.localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(resumes))
@@ -101,6 +420,70 @@ export default function DocumentsPage() {
   useEffect(() => {
     window.localStorage.setItem(COVER_LETTERS_STORAGE_KEY, JSON.stringify(coverLetters))
   }, [coverLetters])
+
+  useEffect(() => {
+    const preferredTab = getPreferredDocumentsTab()
+    setActiveTab(preferredTab)
+  }, [])
+
+  useEffect(() => {
+    const prepIntent = getApplicationPrepIntent()
+    if (prepIntent?.mode !== 'cover-letter') return
+
+    if (coverLetters.length >= MAX_DOCUMENTS_PER_TYPE) {
+      clearApplicationPrepIntent()
+      setActiveTab('cover-letter')
+      return
+    }
+
+    const id = Date.now()
+    const timestamp = formatTimestamp()
+    const nextName = prepIntent.jobTitle?.trim()
+      ? `Cover letter for ${prepIntent.jobTitle.trim()}`
+      : getNextDocumentName(coverLetters, 'Cover letter')
+
+    const nextCoverLetter: CoverLetterItem = {
+      id,
+      name: nextName,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }
+
+    storeCoverLetterPrepIntent(id, prepIntent)
+    clearApplicationPrepIntent()
+    setCoverLetters((prev) => [...prev, nextCoverLetter])
+    navigate(`/documents/cover-letter/${id}`)
+  }, [coverLetters.length, navigate])
+
+  useEffect(() => {
+    const prepIntent = getApplicationPrepIntent()
+    if (prepIntent?.mode !== 'resume') return
+
+    if (resumes.length >= MAX_DOCUMENTS_PER_TYPE) {
+      clearApplicationPrepIntent()
+      setActiveTab('resume')
+      return
+    }
+
+    const id = Date.now()
+    const timestamp = formatTimestamp()
+    const nextName = prepIntent.jobTitle?.trim()
+      ? `Resume for ${prepIntent.jobTitle.trim()}`
+      : getNextDocumentName(resumes, 'Resume')
+
+    const nextResume: ResumeItem = {
+      id,
+      name: nextName,
+      updatedAt: timestamp,
+    }
+
+    storeResumePrepIntent(id, prepIntent)
+    clearApplicationPrepIntent()
+    setResumes((prev) => [...prev, nextResume])
+    setSelectedResumeId(id)
+    void createInitialResumeRecord(id, nextName, prepIntent)
+    navigate(`/documents/resume/${id}`)
+  }, [navigate, resumes.length])
 
   useEffect(() => {
     if (resumes.length === 0) {
@@ -113,6 +496,35 @@ export default function DocumentsPage() {
       setSelectedResumeId(resumes[0].id)
     }
   }, [resumes, selectedResumeId])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadResumePreviews = async () => {
+      const nextPreviews: Record<number, ResumeDocument> = {}
+
+      await Promise.all(
+        resumes.map(async (resume) => {
+          try {
+            const document = await fetchResumeDocument(String(resume.id))
+            nextPreviews[resume.id] = document
+          } catch {
+            // Skip unavailable previews and keep the card usable.
+          }
+        }),
+      )
+
+      if (!isCancelled) {
+        setResumePreviews(nextPreviews)
+      }
+    }
+
+    void loadResumePreviews()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [resumes])
 
   const canCreateResume = resumes.length < MAX_DOCUMENTS_PER_TYPE
   const canCreateCoverLetter = coverLetters.length < MAX_DOCUMENTS_PER_TYPE
@@ -129,10 +541,104 @@ export default function DocumentsPage() {
 
     setResumes((prev) => [...prev, nextResume])
     setSelectedResumeId(id)
+    void createInitialResumeRecord(id, nextResume.name, null)
   }
 
   const handleDeleteResume = (id: number) => {
     setResumes((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const handleCopyResume = async (resume: ResumeItem) => {
+    if (!canCreateResume) return
+
+    const id = Date.now()
+    const timestamp = formatTimestamp()
+    const nextName = getNextDocumentName(
+      resumes,
+      `${resume.name.trim() || 'Resume'} copy`,
+    )
+
+    setBusyResumeActionId(resume.id)
+
+    try {
+      let copiedDocument: ResumeDocument | null = null
+
+      try {
+        const sourceDocument = await fetchResumeDocument(String(resume.id))
+        copiedDocument = {
+          ...sourceDocument,
+          id: undefined,
+          filename: nextName,
+        }
+      } catch {
+        copiedDocument = null
+      }
+
+      if (copiedDocument) {
+        await saveResumeDocument(String(id), copiedDocument)
+      }
+
+      setResumes((prev) => [
+        ...prev,
+        {
+          id,
+          name: nextName,
+          updatedAt: timestamp,
+        },
+      ])
+      setSelectedResumeId(id)
+    } catch (error) {
+      console.error('Resume copy failed.', error)
+      window.alert(error instanceof Error ? error.message : 'Failed to copy resume.')
+    } finally {
+      setBusyResumeActionId(null)
+    }
+  }
+
+  const handleExportResume = async (resume: ResumeItem) => {
+    setBusyResumeActionId(resume.id)
+
+    try {
+      const resumeDocument = await fetchResumeDocument(String(resume.id))
+      const response = await fetch('/api/resumes/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildExportPayload(resumeDocument)),
+      })
+
+      if (!response.ok) {
+        const contentType = response.headers.get('Content-Type') || ''
+        if (contentType.includes('application/json')) {
+          const payload = (await response.json()) as { message?: string; error?: string }
+          throw new Error(payload.message || payload.error || 'Resume export failed.')
+        }
+
+        throw new Error('Resume export failed.')
+      }
+
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = blobUrl
+      anchor.download = `${(resumeDocument.filename || resume.name || 'resume').trim() || 'resume'}.pdf`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (error) {
+      console.error('Resume export failed.', error)
+      window.alert(
+        error instanceof Error && error.message.includes('Failed to load resume: 404')
+          ? 'This resume is not available to export yet. Open it once or save it in the editor, then try again.'
+          : error instanceof Error
+            ? error.message
+            : 'Please save this resume in the editor before exporting it.',
+      )
+    } finally {
+      setBusyResumeActionId(null)
+    }
   }
 
   const handleCreateCoverLetter = () => {
@@ -198,41 +704,60 @@ export default function DocumentsPage() {
                     isSelected ? 'bg-white/[0.02]' : ''
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedResumeId(item.id)}
-                    className={`flex w-full gap-4 text-left transition ${
-                      isSelected ? 'opacity-100' : 'opacity-85 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="h-[170px] w-[120px] shrink-0 bg-[#EFEFEF]" />
+                  <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedResumeId(item.id)}
+                      className={`h-[170px] w-[120px] shrink-0 overflow-hidden rounded-[2px] bg-[#EFEFEF] text-left transition ${
+                        isSelected ? 'opacity-100' : 'opacity-85 hover:opacity-100'
+                      }`}
+                      aria-label={`Select ${item.name}`}
+                    >
+                      <ResumeThumbnail
+                        resume={resumePreviews[item.id]}
+                        fallbackName={item.name}
+                      />
+                    </button>
 
-                    <div className="min-w-0 flex-1">
-                      <h2 className="truncate text-[18px] font-semibold">{item.name}</h2>
-                      <p className="mt-1 text-[13px] text-white/60">
-                        Updated on {item.updatedAt}
-                      </p>
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedResumeId(item.id)}
+                        className={`w-full text-left transition ${
+                          isSelected ? 'opacity-100' : 'opacity-85 hover:opacity-100'
+                        }`}
+                      >
+                        <h2 className="truncate text-[18px] font-semibold">{item.name}</h2>
+                        <p className="mt-1 text-[13px] text-white/60">
+                          Updated on {item.updatedAt}
+                        </p>
+                      </button>
 
                       <div className="my-2 h-px bg-white/15" />
 
                       <div className="space-y-4 pt-2 text-[14px] text-white/85">
-                        <div className="flex items-center gap-3 transition hover:text-[#E7F12E]">
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyResume(item)}
+                          disabled={!canCreateResume || busyResumeActionId === item.id}
+                          className="flex items-center gap-3 transition hover:text-[#E7F12E] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                           <Copy size={18} />
-                          <span>Make a copy</span>
-                        </div>
+                          <span>{busyResumeActionId === item.id ? 'Working...' : 'Make a copy'}</span>
+                        </button>
 
-                        <div className="flex items-center gap-3 transition hover:text-[#E7F12E]">
+                        <button
+                          type="button"
+                          onClick={() => void handleExportResume(item)}
+                          disabled={busyResumeActionId === item.id}
+                          className="flex items-center gap-3 transition hover:text-[#E7F12E] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                           <FileText size={18} />
-                          <span>Export as pdf</span>
-                        </div>
-
-                        <div className="flex items-center gap-3 transition hover:text-[#E7F12E]">
-                          <FileType size={18} />
-                          <span>Export as docx</span>
-                        </div>
+                          <span>{busyResumeActionId === item.id ? 'Exporting...' : 'Export as pdf'}</span>
+                        </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
 
                   <Link
                     to={`/documents/resume/${item.id}`}
@@ -339,5 +864,116 @@ export default function DocumentsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function ResumeThumbnail({
+  resume,
+  fallbackName,
+}: {
+  resume?: ResumeDocument
+  fallbackName: string
+}) {
+  const displayName = resume?.profileName?.trim() || DEFAULT_PREVIEW_NAME
+  const details = [
+    resume?.phone?.trim(),
+    resume?.location?.trim(),
+    ...(resume?.links ?? [])
+      .map((link) => link.label.trim() || link.url.trim())
+      .filter(Boolean)
+      .slice(0, 2),
+  ].filter(Boolean) as string[]
+
+  const visibleSummary = resume?.summary?.trim()
+  const visibleExperience = (resume?.experiences ?? []).filter(
+    (item) => item.title.trim() || item.employer.trim(),
+  )
+  const visibleProjects = (resume?.projects ?? []).filter(
+    (item) => item.title.trim() || item.employer.trim(),
+  )
+  const visibleSkills = (resume?.skills ?? []).filter((item) => item.name.trim())
+
+  return (
+    <div className="h-full w-full bg-[#F7F3EA] px-3 py-3 text-[#1E1E1D]">
+      <div className="border-b border-black/10 pb-2">
+        <div className="truncate text-[10px] font-semibold leading-none">{displayName}</div>
+        {details.length > 0 ? (
+          <div className="mt-1 space-y-0.5 text-[5px] leading-[1.25] text-black/65">
+            {details.slice(0, 3).map((detail, index) => (
+              <div key={`${detail}-${index}`} className="truncate">
+                {detail}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-1 text-[5px] text-black/45">{fallbackName}</div>
+        )}
+      </div>
+
+      <div className="space-y-2 pt-2">
+        {visibleSummary ? (
+          <ResumeThumbnailSection title="Summary">
+            <p className="line-clamp-3 text-[5px] leading-[1.35] text-black/70">{visibleSummary}</p>
+          </ResumeThumbnailSection>
+        ) : null}
+
+        {visibleExperience.length > 0 ? (
+          <ResumeThumbnailSection title="Experience">
+            {visibleExperience.slice(0, 2).map((item, index) => (
+              <div key={`${item.title}-${item.employer}-${index}`} className="mb-1 last:mb-0">
+                <div className="truncate text-[5px] font-semibold text-black/80">
+                  {item.title.trim() || 'Role'}
+                </div>
+                <div className="truncate text-[5px] text-black/60">
+                  {item.employer.trim() || item.location.trim() || 'Company'}
+                </div>
+              </div>
+            ))}
+          </ResumeThumbnailSection>
+        ) : null}
+
+        {visibleProjects.length > 0 ? (
+          <ResumeThumbnailSection title="Projects">
+            {visibleProjects.slice(0, 2).map((item, index) => (
+              <div key={`${item.title}-${index}`} className="truncate text-[5px] text-black/70">
+                {item.title.trim() || item.employer.trim() || 'Project'}
+              </div>
+            ))}
+          </ResumeThumbnailSection>
+        ) : null}
+
+        {visibleSkills.length > 0 ? (
+          <ResumeThumbnailSection title="Skills">
+            <div className="flex flex-wrap gap-1">
+              {visibleSkills.slice(0, 4).map((item, index) => (
+                <span
+                  key={`${item.name}-${index}`}
+                  className="rounded bg-black/5 px-1 py-0.5 text-[4.5px] text-black/65"
+                >
+                  {item.name.trim()}
+                </span>
+              ))}
+            </div>
+          </ResumeThumbnailSection>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ResumeThumbnailSection({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section>
+      <div className="mb-1 text-[5px] font-semibold uppercase tracking-[0.08em] text-black/45">
+        {title}
+      </div>
+      {children}
+    </section>
   )
 }

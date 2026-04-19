@@ -1,5 +1,6 @@
 package com.comp4801.jobportal.controller;
 
+import com.comp4801.jobportal.dto.JobResponse;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.services.JobService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ public class JobController {
     }
 
     @GetMapping()
-    public ResponseEntity<PagedModel<Job>> searchJobs(
+    public ResponseEntity<PagedModel<JobResponse>> searchJobs(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) List<String> employmentType,
             @RequestParam(required = false) List<String> jobMode,
@@ -47,13 +48,15 @@ public class JobController {
                 sortBy, direction
         );
 
-        return ResponseEntity.ok(new PagedModel<>(jobs));
+        Page<JobResponse> jobResponses = jobs.map(JobResponse::from);
+
+        return ResponseEntity.ok(new PagedModel<>(jobResponses));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Job> getJobById(@PathVariable String id) {
+    public ResponseEntity<JobResponse> getJobById(@PathVariable String id) {
         Job job = jobService.getJobDetailsById(id);
-        return ResponseEntity.ok(job);
+        return ResponseEntity.ok(JobResponse.from(job));
     }
 
 //    @GetMapping("/recommendations")

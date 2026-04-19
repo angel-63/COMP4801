@@ -1,8 +1,15 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Bell, MessageSquareMore, CircleHelp, ChevronDown } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
+import { fetchCurrentUserProfile, getCachedUserProfile } from '../../lib/profileApi'
+import type { UserProfile } from '../../types/profile'
 
 export default function AppLayout() {
+  const navigate = useNavigate()
   const location = useLocation()
+  const [profile, setProfile] = useState<UserProfile | null>(() => getCachedUserProfile())
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const accountMenuRef = useRef<HTMLDivElement | null>(null)
 
   const navItems = [
     { name: 'Matches', path: '/matches' },
@@ -10,6 +17,63 @@ export default function AppLayout() {
     { name: 'Documents', path: '/documents' },
     { name: 'Profile', path: '/profile' },
   ]
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const nextProfile = await fetchCurrentUserProfile()
+        setProfile(nextProfile)
+      } catch {
+        const cachedProfile = getCachedUserProfile()
+        if (cachedProfile) {
+          setProfile(cachedProfile)
+        }
+      }
+    }
+
+    void loadProfile()
+  }, [])
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [])
+
+  const initials = useMemo(() => {
+    const fullName =
+      profile?.fullName?.trim() ||
+      [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim()
+
+    if (!fullName) {
+      return 'U'
+    }
+
+    return fullName
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('')
+  }, [profile?.firstName, profile?.fullName, profile?.lastName])
+
+  const handleLogout = () => {
+    window.localStorage.removeItem('isLoggedIn')
+    window.localStorage.removeItem('currentUserId')
+    window.localStorage.removeItem('currentUserEmail')
+    window.localStorage.removeItem('userProfile')
+    window.localStorage.removeItem('profile')
+    window.localStorage.removeItem('pendingRegistration')
+    window.localStorage.removeItem('pendingRegistrationEmail')
+    setIsAccountMenuOpen(false)
+    navigate('/')
+  }
 
   return (
     <div className="min-h-screen bg-[#41413F] text-white">
@@ -42,25 +106,34 @@ export default function AppLayout() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-5">
-          <button className="text-white/85 transition hover:text-white">
-            <Bell size={20} strokeWidth={2} />
-          </button>
-          <button className="text-white/85 transition hover:text-white">
-            <MessageSquareMore size={20} strokeWidth={2} />
-          </button>
-          <button className="text-white/85 transition hover:text-white">
-            <CircleHelp size={20} strokeWidth={2} />
-          </button>
-
-          <div className="mx-1 h-10 w-px bg-white/20" />
-
-          <button className="flex items-center gap-3">
+        <div ref={accountMenuRef} className="relative flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+            className="flex items-center gap-3 rounded-md px-1 py-1 transition hover:bg-white/5"
+            aria-haspopup="menu"
+            aria-expanded={isAccountMenuOpen}
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#E7F12E] font-semibold text-black">
-              FL
+              {initials}
             </div>
-            <ChevronDown size={18} className="text-white" />
+            <ChevronDown
+              size={18}
+              className={`text-white transition ${isAccountMenuOpen ? 'rotate-180' : ''}`}
+            />
           </button>
+
+          {isAccountMenuOpen ? (
+            <div className="absolute right-0 top-[calc(100%+10px)] z-20 min-w-[160px] rounded-xl border border-white/10 bg-[#222220] p-2 shadow-[0_16px_36px_rgba(0,0,0,0.35)]">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full rounded-lg px-4 py-2 text-left text-sm text-white/90 transition hover:bg-white/8 hover:text-[#E7F12E]"
+              >
+                Logout
+              </button>
+            </div>
+          ) : null}
         </div>
       </header>
 

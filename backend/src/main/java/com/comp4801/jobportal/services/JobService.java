@@ -46,8 +46,8 @@ public class JobService {
                 industries,
                 company,
                 jobFunctions,
-                now,
                 cutOffTime,
+                now,
                 pageable,
                 sortBy,
                 direction

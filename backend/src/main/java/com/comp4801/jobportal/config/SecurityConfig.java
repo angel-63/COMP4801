@@ -3,9 +3,8 @@ package com.comp4801.jobportal.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -27,16 +26,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests((requests) -> requests
-                        .requestMatchers("/", "/api/jobs/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/", "/api/**").permitAll()
+                        .anyRequest().permitAll()
                 )
-                .formLogin((form) -> form
-                        .loginPage("/Login")
-                        .permitAll()
-                )
-                .logout(LogoutConfigurer::permitAll)
-                .formLogin((form) -> form.defaultSuccessUrl("/home", true));
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable);
 
         return http.build();
     }

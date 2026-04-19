@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Repository
 @RequiredArgsConstructor
@@ -49,28 +50,28 @@ public class JobRepository{
             criteriaList.add(keywordCriteria);
         }
         if (employmentTypes != null && !employmentTypes.isEmpty()) {
-            criteriaList.add(Criteria.where("employmentType").in(employmentTypes));
+            criteriaList.add(buildAnyValueCriteria("employmentType", employmentTypes));
         }
         if (jobModes != null && !jobModes.isEmpty()) {
-            criteriaList.add(Criteria.where("jobMode").in(jobModes));
+            criteriaList.add(buildAnyValueCriteria("jobMode", jobModes));
         }
         if (experienceLevels != null && !experienceLevels.isEmpty()) {
-            criteriaList.add(Criteria.where("experienceLevel").in(experienceLevels));
+            criteriaList.add(buildAnyValueCriteria("experienceLevel", experienceLevels));
         }
         if (industries != null && !industries.isEmpty()) {
-            criteriaList.add(Criteria.where("companyIndustry").in(industries));
+            criteriaList.add(buildAnyValueCriteria("companyIndustry", industries));
         }
         if (company != null && !company.trim().isEmpty()) {
             criteriaList.add(Criteria.where("companyName").regex(company, "i"));
         }
         if (jobFunctions != null && !jobFunctions.isEmpty()) {
-            criteriaList.add(Criteria.where("jobFunction").in(jobFunctions));
+            criteriaList.add(buildAnyValueCriteria("jobFunction", jobFunctions));
         }
         if (now != null) {
             criteriaList.add(Criteria.where("expiresAt").gte(now));
         }
         if (cutOffTime != null) {
-            criteriaList.add(Criteria.where("createdAt").lte(cutOffTime));
+            criteriaList.add(Criteria.where("createdAt").gte(cutOffTime));
         }
         if (!criteriaList.isEmpty()) {
             query.addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
@@ -112,6 +113,23 @@ public class JobRepository{
                 : Sort.Direction.ASC;
     }
 
+    private Criteria buildAnyValueCriteria(String field, List<String> values) {
+        List<Criteria> alternatives = values.stream()
+                .filter(value -> value != null && !value.trim().isEmpty())
+                .map(value -> Criteria.where(field).regex(Pattern.quote(value.trim()), "i"))
+                .toList();
+
+        if (alternatives.isEmpty()) {
+            return new Criteria();
+        }
+
+        if (alternatives.size() == 1) {
+            return alternatives.get(0);
+        }
+
+        return new Criteria().orOperator(alternatives.toArray(new Criteria[0]));
+    }
+
     private PageImpl<Job> queryJobs(Query query, Pageable pageable){
         // pagination
         long total = mongoTemplate.count(query, Job.class);
@@ -121,9 +139,16 @@ public class JobRepository{
                 .include("jobTitle")
                 .include("employmentType")
                 .include("jobMode")
+                .include("experienceLevel")
                 .include("companyIndustry")
                 .include("jobFunction")
                 .include("skillTags")
+                .include("minSalary")
+                .include("maxSalary")
+                .include("postedAt")
+                .include("applicationUrl")
+                .include("jobDescription")
+                .include("originalSourceSite")
                 .include("createdAt")
                 .include("expiresAt");
 
