@@ -1,5 +1,6 @@
 package com.comp4801.jobportal.controller;
 
+import com.comp4801.jobportal.dto.MatchResult;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.services.JobService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,8 +57,8 @@ public class JobController {
         return ResponseEntity.ok(job);
     }
 
-//    @GetMapping("/recommendations")
-//    public List<MatchResult> getRecommendations(@AuthenticationPrincipal String userId) {
-//        return jobService.recommendJobsForUser(userId);
-//    }
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<MatchResult>> getRecommendations(@RequestParam String userId) {
+        return ResponseEntity.ok(jobService.recommendJobsForUser(userId));
+    }
 }

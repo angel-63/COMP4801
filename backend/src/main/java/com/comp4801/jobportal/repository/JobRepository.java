@@ -24,17 +24,17 @@ public class JobRepository{
 
     // return list of jobs with basic info only
     public Page<Job> findJobsByFilters(String keyword,
-                                         List<String> employmentTypes,
-                                         List<String> jobModes,
-                                         List<String> experienceLevels,
-                                         List<String> industries,
-                                         String company,
-                                         List<String> jobFunctions,
-                                         Instant cutOffTime,
-                                         Instant now,
-                                         Pageable pageable,
-                                         String sortBy,
-                                         String direction
+                                       List<String> employmentTypes,
+                                       List<String> jobModes,
+                                       List<String> experienceLevels,
+                                       List<String> industries,
+                                       String company,
+                                       List<String> jobFunctions,
+                                       Instant now,
+                                       Instant cutOffTime,
+                                       Pageable pageable,
+                                       String sortBy,
+                                       String direction
                                 ) {
         Query query = new Query();
         List<Criteria> criteriaList = new ArrayList<>();
@@ -70,7 +70,7 @@ public class JobRepository{
             criteriaList.add(Criteria.where("expiresAt").gte(now));
         }
         if (cutOffTime != null) {
-            criteriaList.add(Criteria.where("createdAt").lte(cutOffTime));
+            criteriaList.add(Criteria.where("postedAt").gte(cutOffTime));
         }
         if (!criteriaList.isEmpty()) {
             query.addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
@@ -85,7 +85,7 @@ public class JobRepository{
     }
 
     // for user to get info of list of saved jobs
-    public Page<Job> findJobsById(List<String> ids, Pageable pageable,String sortBy, String direction){
+    public Page<Job> findJobsByIds(List<String> ids, Pageable pageable,String sortBy, String direction){
         Query query = new Query();
 
         if (ids != null && !ids.isEmpty()) {

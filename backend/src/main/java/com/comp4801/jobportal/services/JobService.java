@@ -1,6 +1,8 @@
 package com.comp4801.jobportal.services;
 
+import com.comp4801.jobportal.dto.MatchResult;
 import com.comp4801.jobportal.model.Job;
+import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -17,12 +19,15 @@ import java.util.List;
 public class JobService {
     @Autowired
     private final JobRepository jobRepository;
+    private final RecommendationClient recommendationClient;
+    private final UserService userService;
 
-    public JobService(JobRepository jobRepository) {
+    public JobService(JobRepository jobRepository, RecommendationClient recommendationClient, UserService userService) {
         this.jobRepository = jobRepository;
+        this.recommendationClient = recommendationClient;
+        this.userService = userService;
     }
-//    private final RecommendationClient recommendationClient;
-//    private final ProfileService profileService; // allowed to read profile data
+
 
     public Page<Job> searchJobs(String keyword,
                                 List<String> employmentTypes,
@@ -59,12 +64,8 @@ public class JobService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: " + id));
     }
 
-    /*
     public List<MatchResult> recommendJobsForUser(String userId) {
-        User profile = profileService.getProfileByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        List<Job> allJobs = jobRepository.findAll(); // naive; implement pagination if needed
-        return recommendationClient.getRecommendations(profile, allJobs);
+        User profile = userService.getUserById(userId);
+        return recommendationClient.getRecommendations(profile);
     }
-     */
 }

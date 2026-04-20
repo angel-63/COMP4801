@@ -62,7 +62,7 @@ async def match_jobs(request: User):
 
     # Sort by combined score descending
     results.sort(key=lambda x: x.combinedScore, reverse=True)
-    return results[:21]
+    return results[:20]
 
 @app.get("/health")
 async def health():

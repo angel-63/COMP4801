@@ -1,5 +1,7 @@
 package com.comp4801.jobportal.config;
 
+import com.comp4801.jobportal.services.JwtService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -39,5 +41,13 @@ public class SecurityConfig {
                 .formLogin((form) -> form.defaultSuccessUrl("/home", true));
 
         return http.build();
+    }
+
+    @Bean
+    public JwtService jwtService(
+            @Value("${jwt.secret}") String jwtSecret,
+            @Value("${jwt.expiration}") int jwtExpirations
+    ){
+        return new JwtService(jwtSecret, jwtExpirations);
     }
 }

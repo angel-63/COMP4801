@@ -7,10 +7,9 @@ spring:
   data:
     mongodb:
       field-naming-strategy: org.springframework.data.mapping.model.SnakeCaseFieldNamingStrategy
-#    security:
-#      jwt:
-#        secret: ${JWT_SECRET:mySuperSecretKey123}
-#        expiration: 86400000
-#recommendation:
-#  service:
-#    url: ${RECOMMENDER_URL:http://localhost:8001}
+
+jwt:
+  secret: d12c5960f72e477f014b10e9532c0bcb92c29dc828beba09e9e42eb743eddfca
+  expiration: 360000 # 1hr
+#recommender:
+#  url: http://localhost:8001

@@ -7,9 +7,9 @@ public enum EmploymentType {
 
     FULL_TIME("fulltime"),
     PART_TIME("parttime"),
-    CONTRACT("contract", "contractor"),
+    CONTRACT("contract"),
     TEMPORARY("temporary"),
-    INTERNSHIP("internship", "summer"),
+    INTERNSHIP("internship"),
     OTHER("other");
 
     private final String[] values;

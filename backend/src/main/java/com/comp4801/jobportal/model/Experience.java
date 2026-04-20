@@ -1,8 +1,11 @@
 package com.comp4801.jobportal.model;
 
+import lombok.Data;
+
 import java.time.LocalDate;
 
-public class WorkExperience {
+@Data
+public class Experience {
     private String id;
     private String company;
     private String position;

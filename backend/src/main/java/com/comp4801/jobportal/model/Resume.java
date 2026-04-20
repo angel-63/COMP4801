@@ -27,7 +27,7 @@ public class Resume {
     private String filename = "My Resume";
     private String summary;
 
-    private List<Education> education;
+    private List<String> education;
     private List<ResumeExperience> experiences;
     private List<ResumeProject> projects;
     private List<String> skills;

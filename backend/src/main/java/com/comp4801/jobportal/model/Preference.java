@@ -6,8 +6,8 @@ public class Preference {
     private String id;
     private List<String> jobFunctions;
     private List<String> industries;
-    private List<String> employmentTypes;
-    private List<String> experienceLevels;
-    private List<String> jobModes;
+    private List<EmploymentType> employmentTypes;
+    private List<ExperienceLevel> experienceLevels;
+    private List<JobMode> jobModes;
     private Integer minSalary;
 }
