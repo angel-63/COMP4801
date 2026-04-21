@@ -6,28 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-
+import org.springframework.data.mongodb.core.mapping.Field;
 import java.util.List;
-
-//@Document(collection = "users")
-//public record User (
-//    @Id
-//    String id,
-//    String email,
-//    String fullName,
-//    String phone,
-//    String location,
-//    List<Education> education,
-//    List<WorkExperience> workExperience,
-//    List<Project> projects,
-//    List<Skill> skills,
-//    List<Language> languages,
-//    List<Certificate> certificates,
-//    Preference preferences,
-//    List<String> savedJobs,
-//    List<String> appliedJobs,
-//    List<String> dislikedJobs
-//){}
 
 @Data
 @NoArgsConstructor
@@ -38,23 +18,35 @@ public class User {
     @Id
     private String id;
     private String email;
-    private String password; // hashed with BCrypt
+//    @Field("first_name")
     private String firstName;
+//    @Field("last_name")
     private String lastName;
+    private String password;
     private String phone;
     private String location;
+//    @Field("resume_count")
+    private Integer resumeCount;
+//    @Field("cover_letter_count")
+    private Integer coverLetterCount;
     private List<Education> education;
-    private List<Experience> workExperience;
-    private List<Project> projects;
-    private List<Skill> skills;
+//    @Field("work_experience")
+    private List<WorkExperience> workExperience;
+//    @Field("project")
+    private List<Project> project;
+//    @Field("skill_tags")
+    private List<Skill> skillTags;
+//    @Field("language")
+    private List<Language> language;
+//    @Field("certificate")
+    private List<Certificate> certificate;
+//    @Field("preference_tags")
+    private Preference preferenceTags;
     private List<Link> links;
-    private List<Language> languages;
-    private List<Certificate> certificates;
-    private Preference preferences;
+//    @Field("saved_jobs")
+//    private List<SavedJob> savedJobs;
     private List<String> savedJobs;
     private List<String> appliedJobs;
     private List<String> dislikedJobs;
-    private Integer resumeCount;
-    private Integer coverLetterCount;
 }
 

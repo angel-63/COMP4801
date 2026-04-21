@@ -13,6 +13,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -51,8 +53,8 @@ public class JobService {
                 industries,
                 company,
                 jobFunctions,
-                now,
                 cutOffTime,
+                now,
                 pageable,
                 sortBy,
                 direction
@@ -62,6 +64,18 @@ public class JobService {
     public Job getJobDetailsById(String id) {
         return jobRepository.findJobDetailsById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: " + id));
+    }
+
+    public List<Job> getJobsByIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<Job> jobs = new ArrayList<>();
+        for (String id : ids) {
+            jobRepository.findJobDetailsById(id).ifPresent(jobs::add);
+        }
+        return jobs;
     }
 
     public List<MatchResult> recommendJobsForUser(String userId) {

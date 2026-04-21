@@ -28,6 +28,7 @@ public class Application {
     @CreatedDate
     private Date appliedAt;
 
+    @Builder.Default
     private String status = "applied"; // applied, saved, viewed
 
 }

@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Repository
 @RequiredArgsConstructor
@@ -24,17 +25,17 @@ public class JobRepository{
 
     // return list of jobs with basic info only
     public Page<Job> findJobsByFilters(String keyword,
-                                       List<String> employmentTypes,
-                                       List<String> jobModes,
-                                       List<String> experienceLevels,
-                                       List<String> industries,
-                                       String company,
-                                       List<String> jobFunctions,
-                                       Instant now,
-                                       Instant cutOffTime,
-                                       Pageable pageable,
-                                       String sortBy,
-                                       String direction
+                                         List<String> employmentTypes,
+                                         List<String> jobModes,
+                                         List<String> experienceLevels,
+                                         List<String> industries,
+                                         String company,
+                                         List<String> jobFunctions,
+                                         Instant cutOffTime,
+                                         Instant now,
+                                         Pageable pageable,
+                                         String sortBy,
+                                         String direction
                                 ) {
         Query query = new Query();
         List<Criteria> criteriaList = new ArrayList<>();
@@ -121,9 +122,16 @@ public class JobRepository{
                 .include("jobTitle")
                 .include("employmentType")
                 .include("jobMode")
+                .include("experienceLevel")
                 .include("companyIndustry")
                 .include("jobFunction")
                 .include("skillTags")
+                .include("minSalary")
+                .include("maxSalary")
+                .include("postedAt")
+                .include("applicationUrl")
+                .include("jobDescription")
+                .include("originalSourceSite")
                 .include("createdAt")
                 .include("expiresAt");
 
