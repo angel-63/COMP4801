@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Repository
 @RequiredArgsConstructor
@@ -70,7 +71,7 @@ public class JobRepository{
             criteriaList.add(Criteria.where("expiresAt").gte(now));
         }
         if (cutOffTime != null) {
-            criteriaList.add(Criteria.where("createdAt").lte(cutOffTime));
+            criteriaList.add(Criteria.where("postedAt").gte(cutOffTime));
         }
         if (!criteriaList.isEmpty()) {
             query.addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
@@ -85,7 +86,7 @@ public class JobRepository{
     }
 
     // for user to get info of list of saved jobs
-    public Page<Job> findJobsById(List<String> ids, Pageable pageable,String sortBy, String direction){
+    public Page<Job> findJobsByIds(List<String> ids, Pageable pageable,String sortBy, String direction){
         Query query = new Query();
 
         if (ids != null && !ids.isEmpty()) {
@@ -121,9 +122,16 @@ public class JobRepository{
                 .include("jobTitle")
                 .include("employmentType")
                 .include("jobMode")
+                .include("experienceLevel")
                 .include("companyIndustry")
                 .include("jobFunction")
                 .include("skillTags")
+                .include("minSalary")
+                .include("maxSalary")
+                .include("postedAt")
+                .include("applicationUrl")
+                .include("jobDescription")
+                .include("originalSourceSite")
                 .include("createdAt")
                 .include("expiresAt");
 

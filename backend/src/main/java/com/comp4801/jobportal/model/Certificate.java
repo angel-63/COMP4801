@@ -1,11 +1,26 @@
 package com.comp4801.jobportal.model;
 
-import java.time.LocalDate;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.Instant;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Certificate {
+    @Field("_id")
     private String id;
-    private String name;
-    private  String issuingOrg;
-    private  LocalDate issueDate;
-    private  LocalDate expirationDate;
+    @Field("certificate_name")
+    private String certificateName;
+    @Field("issuing_organization")
+    private  String issuingOrganization;
+    @Field("issue_date")
+    private  Instant issueDate;
+    @Field("expiration_date")
+    private  Instant expirationDate;
 }

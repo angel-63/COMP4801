@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --flash-yellow: #FCFF56;
+  --flash-navy: #0C0465;
+  --flash-dark: #1E1E1D;
+  --flash-bg: #F7F7F1;
+  --flash-muted: #CECEC9;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--flash-bg);
+  color: var(--flash-dark);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}

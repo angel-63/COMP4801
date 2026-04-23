@@ -66,7 +66,7 @@ def download_logo_as_binary(url: str, max_size=(180, 180), format="PNG") -> Bina
             "Accept": "image/webp,image/apng,image/*,*/*;q=0.8"
         }
         full_url = url
-        resp = requests.get(full_url, headers=headers, timeout=8, stream=True)
+        resp = requests.get(full_url, headers=headers, timeout=30, stream=True)
         if resp.status_code != 200:
             return None
 

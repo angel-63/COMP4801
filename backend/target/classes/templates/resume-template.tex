@@ -1,0 +1,36 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.6in]{geometry}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titlespacing{\section}{0pt}{10pt}{6pt}
+
+\newcommand{\resumeSubheading}[4]{
+  \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+    \textit{#3} & \textit{#4} \\
+  \end{tabular*}
+}
+
+\begin{document}
+
+{\Huge \textbf{{{NAME}}}}\\
+{{PHONE}} \hfill {{LOCATION}}\\
+{{LINKS}}
+
+{{SUMMARY_BLOCK}}
+{{EDUCATION_BLOCK}}
+{{SKILLS_BLOCK}}
+{{EXPERIENCE_BLOCK}}
+{{PROJECTS_BLOCK}}
+{{CERTIFICATES_BLOCK}}
+{{LANGUAGES_BLOCK}}
+
+\end{document}
