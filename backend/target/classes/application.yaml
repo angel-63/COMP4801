@@ -1,3 +1,7 @@
+jwt:
+  secret: TdL0EjB97Sz0yCb1CWKwnzmI1fzseb18wE5wQCXL6OG
+  expiration: 360000 # 6mins, add one more 0 for 1hr
+
 spring:
   application:
     name: jobportal
@@ -7,10 +11,6 @@ spring:
   data:
     mongodb:
       field-naming-strategy: org.springframework.data.mapping.model.SnakeCaseFieldNamingStrategy
-#    security:
-#      jwt:
-#        secret: ${JWT_SECRET:mySuperSecretKey123}
-#        expiration: 86400000
-#recommendation:
-#  service:
-#    url: ${RECOMMENDER_URL:http://localhost:8001}
+
+#recommender:
+#  url: http://localhost:8001

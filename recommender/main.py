@@ -1,4 +1,5 @@
 import argparse
+import random
 from bson import Binary
 from db.models.job import Job
 from recommender.filtering import apply_filters
@@ -62,7 +63,13 @@ async def match_jobs(request: User):
 
     # Sort by combined score descending
     results.sort(key=lambda x: x.combinedScore, reverse=True)
-    return results[:20]
+    
+    TOP_N = 40
+    FINAL_N = 10
+
+    top_candidates = results[:TOP_N]
+    
+    return random.sample(top_candidates, min(FINAL_N, len(top_candidates)))
 
 @app.get("/health")
 async def health():

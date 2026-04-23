@@ -45,7 +45,7 @@ public class User {
     private List<Link> links;
 //    @Field("saved_jobs")
 //    private List<SavedJob> savedJobs;
-    private List<String> savedJobs;
+    private List<SavedJob> savedJobs;
     private List<String> appliedJobs;
     private List<String> dislikedJobs;
 }

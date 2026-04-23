@@ -1,25 +1,32 @@
 package com.comp4801.jobportal.controller;
 
+import com.comp4801.jobportal.dto.LoginRequest;
+import com.comp4801.jobportal.dto.RegistrationRequest;
 import com.comp4801.jobportal.dto.UserProfileResponse;
 import com.comp4801.jobportal.model.SavedJob;
 import com.comp4801.jobportal.model.User;
+import com.comp4801.jobportal.services.JwtUtil;
 import com.comp4801.jobportal.services.UserService;
 import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
+@AllArgsConstructor
 public class UserController {
+    @Autowired
     private final UserService userService;
-
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
+    @Autowired
+    private final JwtUtil jwtUtil;
 
     @GetMapping("/{id}")
     public ResponseEntity<UserProfileResponse> getUserById(@PathVariable String id) {
@@ -30,6 +37,29 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> getUserByEmail(@RequestParam String email) {
         return ResponseEntity.ok(UserProfileResponse.from(userService.getUserByEmail(email)));
     }
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegistrationRequest request) {
+        User user = userService.registerUser(request);
+        String token = jwtUtil.generateToken(user.getId());
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+        response.put("userId", user.getId());
+        response.put("email", user.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest loginRequest) {
+        User user = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
+        String token = jwtUtil.generateToken(user.getId());
+        Map<String, String> response = new HashMap<>();
+        response.put("token", token);
+        response.put("userId", user.getId());
+        response.put("email", user.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<UserProfileResponse> saveUser(@PathVariable String id, @RequestBody User user) {
@@ -59,45 +89,3 @@ public class UserController {
         return ResponseEntity.ok(userService.removeSavedJob(id, jobId));
     }
 }
-//
-//import com.comp4801.jobportal.dto.RegistrationRequest;
-//        import com.comp4801.jobportal.model.User;
-//        import com.comp4801.jobportal.services.UserService;
-//        import jakarta.validation.Valid;
-//        import lombok.RequiredArgsConstructor;
-//        import org.springframework.beans.factory.annotation.Autowired;
-//        import org.springframework.http.HttpStatus;
-//        import org.springframework.http.ResponseEntity;
-//        import org.springframework.web.bind.annotation.*;
-//
-//@RestController
-//@RequiredArgsConstructor
-//@RequestMapping("/api/user")
-//public class UserController {
-//    @Autowired
-//    private final UserService userService;
-//
-////    @GetMapping("/login")
-////    public ResponseEntity<User> login(@Valid @RequestBody String email, String password) {
-////        User user = userService.login(email, password);
-////        return ResponseEntity.status(HttpStatus.CREATED).body(user);
-////    }
-////
-////    @PostMapping("/register")
-////    public ResponseEntity<User> register(@Valid @RequestBody RegistrationRequest request) {
-////        User user = userService.registerUser(request);
-////        return ResponseEntity.status(HttpStatus.CREATED).body(user);
-////    }
-//
-//    @GetMapping("/{userId}")
-//    public ResponseEntity<User> getUser(@PathVariable String id) {
-//        User user = userService.getUserById(id);
-//        return ResponseEntity.ok(user);
-//    }
-//
-//    @PatchMapping()
-//    public ResponseEntity<User> updateProfile(@RequestBody @Valid User profile) {
-//        return ResponseEntity.ok(userService.createOrUpdateProfile(profile));
-//    }
-//
-//}

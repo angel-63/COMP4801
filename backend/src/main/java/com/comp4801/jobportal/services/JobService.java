@@ -4,6 +4,7 @@ import com.comp4801.jobportal.dto.MatchResult;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.repository.JobRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,18 +19,11 @@ import java.util.Comparator;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class JobService {
-    @Autowired
     private final JobRepository jobRepository;
     private final RecommendationClient recommendationClient;
     private final UserService userService;
-
-    public JobService(JobRepository jobRepository, RecommendationClient recommendationClient, UserService userService) {
-        this.jobRepository = jobRepository;
-        this.recommendationClient = recommendationClient;
-        this.userService = userService;
-    }
-
 
     public Page<Job> searchJobs(String keyword,
                                 List<String> employmentTypes,

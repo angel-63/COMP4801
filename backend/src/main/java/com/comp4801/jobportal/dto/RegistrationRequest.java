@@ -28,21 +28,21 @@ public class RegistrationRequest {
     @NotBlank
     private String location;
 
-    @NotNull
+//    @NotNull
     private List<Link> links;
 
     @NotNull
     private Preference preferences;
 
-    @NotNull
+//    @NotNull
     private List<Education> educations;
 
-    @NotNull
-    private List<Experience> experiences;
+//    @NotNull
+    private List<WorkExperience> experiences;
 
-    @NotNull
+//    @NotNull
     private List<Project> projects;
 
-    @NotNull
+//    @NotNull
     private List<String> skills; // convert in UserService to List<Skill> by setting proficiency to null
 }

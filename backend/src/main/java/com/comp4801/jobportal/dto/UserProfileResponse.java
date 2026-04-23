@@ -41,11 +41,11 @@ public record UserProfileResponse(
                 user.getCoverLetterCount(),
                 user.getEducation(),
                 user.getWorkExperience(),
-                user.getProjects(),
-                user.getSkills(),
-                user.getLanguages(),
-                user.getCertificates(),
-                user.getPreferences(),
+                user.getProject(),
+                user.getSkillTags(),
+                user.getLanguage(),
+                user.getCertificate(),
+                user.getPreferenceTags(),
                 user.getLinks()
         );
     }
