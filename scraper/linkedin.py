@@ -5,6 +5,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from PIL import Image
 from urllib.parse import unquote
 
@@ -290,7 +291,7 @@ class LinkedInScraper(Scraper):
             salary_max = None
             
             if salary_tag:
-                salary_text = salary_tag.get_text(separator=" ", strip=Tr)
+                salary_text = salary_tag.get_text(separator=" ", strip=True)
                 numbers = re.findall(r'\d[\d,]*', salary_text)
                 salary_min = numbers[0].replace(',', '')
                 salary_max = numbers[1].replace(',', '')
@@ -304,15 +305,26 @@ class LinkedInScraper(Scraper):
             # logger.info(f"company logo url: {company_logo_url}")
             company_logo_bin = download_logo_as_binary(company_logo_url)
 
-            datetime_tag = (
-                soup.find("time", class_=re.compile(r"main-job-card__listdate"))
+            posted = (
+                soup.find("span", class_=re.compile(r"posted-time-ago__text")).get_text(strip=True)
                 if soup else None
             )
+            # print("posted: ", posted)
+            time_match = re.findall(r'(\d+)\s+(minute|hour|day|week|month|year)s?', posted,)
+            # print(time_match)
             date_posted = None
-            if datetime_tag and "datetime" in datetime_tag.attrs:
-                datetime_str = datetime_tag["datetime"]
+            if time_match:
+                number, unit = time_match[0]
+                # print(f"numer: {number}, unit: {unit}")
+                unit_map = {'minute': timedelta(minutes=int(number)), 
+                            'hour': timedelta(hours=int(number)), 
+                            'day': timedelta(days=int(number)), 
+                            'week': timedelta(weeks=int(number)),
+                            'month': timedelta(days=int(number)*30),
+                            'year': timedelta(days=int(number)*365)
+                            }
                 try:
-                    date_posted = datetime.strptime(datetime_str, "%Y-%m-%d")
+                    date_posted = datetime.now(tz=ZoneInfo('Asia/Hong_Kong')) - unit_map[unit]
                 except:
                     date_posted = None
             
