@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Sparkles, Trash2, WandSparkles, Pencil } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { authFetch } from '../../lib/authApi'
 import { fetchResumeDocument, saveResumeDocument, type ResumeDocument, type ResumeTargetJob } from '../../lib/resumeApi'
 import { improveResumeTextWithAi, reviewResumeWithAi, type ResumeAiImproveResponse, type ResumeAiReviewResponse } from '../../lib/resumeAiApi'
+import { getCurrentUserId } from '../../lib/profileApi'
 
 type ResumeLink = {
   id: number
@@ -461,9 +463,15 @@ const FIRST_PAGE_HEADER_RESERVE = 108
 const FIRST_PAGE_CONTENT_CAPACITY = A4_PAGE_HEIGHT - PREVIEW_PAGE_VERTICAL_PADDING - FIRST_PAGE_HEADER_RESERVE
 const OTHER_PAGE_CONTENT_CAPACITY = A4_PAGE_HEIGHT - PREVIEW_PAGE_VERTICAL_PADDING
 const DEFAULT_PREVIEW_NAME = 'Your Name'
-const RESUMES_STORAGE_KEY = 'documents:resumes'
 const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
-const RESUME_PREP_STORAGE_PREFIX = 'documents:resumePrep:'
+
+function getResumesStorageKey() {
+  return `documents:resumes:${getCurrentUserId()}`
+}
+
+function getResumePrepStorageKey(resumeId: string) {
+  return `documents:resumePrep:${getCurrentUserId()}:${resumeId}`
+}
 
 function formatProfileMonthYear(value: unknown) {
   if (typeof value !== 'string' || !value) return ''
@@ -673,7 +681,7 @@ function formatDocumentTimestamp(date = new Date()) {
 function syncStoredResumeMeta(resumeId: string, name: string, updatedAt: string) {
   if (typeof window === 'undefined') return
 
-  const rawValue = window.localStorage.getItem(RESUMES_STORAGE_KEY)
+  const rawValue = window.localStorage.getItem(getResumesStorageKey())
   if (!rawValue) return
 
   try {
@@ -682,7 +690,7 @@ function syncStoredResumeMeta(resumeId: string, name: string, updatedAt: string)
       String(item.id) === resumeId ? { ...item, name: name || item.name, updatedAt } : item,
     )
 
-    window.localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(nextItems))
+    window.localStorage.setItem(getResumesStorageKey(), JSON.stringify(nextItems))
   } catch {
     return
   }
@@ -708,7 +716,7 @@ type AiDialogState =
 function getStoredResumeMetaName(resumeId: string) {
   if (typeof window === 'undefined' || !resumeId) return ''
 
-  const rawValue = window.localStorage.getItem(RESUMES_STORAGE_KEY)
+  const rawValue = window.localStorage.getItem(getResumesStorageKey())
   if (!rawValue) return ''
 
   try {
@@ -747,7 +755,7 @@ function getApplicationPrepContext() {
 function getStoredResumePrepContext(resumeId: string) {
   if (typeof window === 'undefined' || !resumeId) return null
 
-  const rawValue = window.localStorage.getItem(`${RESUME_PREP_STORAGE_PREFIX}${resumeId}`)
+  const rawValue = window.localStorage.getItem(getResumePrepStorageKey(resumeId))
   if (!rawValue) return null
 
   try {
@@ -775,7 +783,7 @@ function clearApplicationPrepContext() {
 
 function clearStoredResumePrepContext(resumeId: string) {
   if (typeof window === 'undefined' || !resumeId) return
-  window.localStorage.removeItem(`${RESUME_PREP_STORAGE_PREFIX}${resumeId}`)
+  window.localStorage.removeItem(getResumePrepStorageKey(resumeId))
 }
 
 function mapPrepContextToTargetJob(
@@ -1681,7 +1689,7 @@ export default function ResumeEditorPage() {
     setIsExporting(true)
 
     try {
-      const response = await fetch('/api/resumes/export', {
+      const response = await authFetch('/api/resumes/export', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

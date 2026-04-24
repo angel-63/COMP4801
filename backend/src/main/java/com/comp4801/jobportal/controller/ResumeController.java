@@ -5,6 +5,8 @@ import com.comp4801.jobportal.services.ResumeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/resumes")
 public class ResumeController {
@@ -12,6 +14,11 @@ public class ResumeController {
 
     public ResumeController(ResumeService resumeService) {
         this.resumeService = resumeService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Resume>> listResumes(@RequestParam String userId) {
+        return ResponseEntity.ok(resumeService.listResumes(userId));
     }
 
     @GetMapping("/{id}")
@@ -26,5 +33,11 @@ public class ResumeController {
             @RequestBody Resume resume
     ) {
         return ResponseEntity.ok(resumeService.saveResume(id, userId, resume));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteResume(@PathVariable String id, @RequestParam String userId) {
+        resumeService.deleteResume(id, userId);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,4 +1,5 @@
 import { getCurrentUserId } from './profileApi'
+import { authFetch } from './authApi'
 
 export type ResumeSectionTitles = {
   personalDetails: string
@@ -79,7 +80,7 @@ export type ResumeDocument = {
 
 export async function fetchResumeDocument(resumeId: string) {
   const userId = getCurrentUserId()
-  const response = await fetch(`/api/resumes/${encodeURIComponent(resumeId)}?userId=${encodeURIComponent(userId)}`)
+  const response = await authFetch(`/api/resumes/${encodeURIComponent(resumeId)}?userId=${encodeURIComponent(userId)}`)
 
   if (!response.ok) {
     throw new Error(`Failed to load resume: ${response.status}`)
@@ -88,9 +89,21 @@ export async function fetchResumeDocument(resumeId: string) {
   return (await response.json()) as ResumeDocument
 }
 
+export async function listResumeDocuments() {
+  const userId = getCurrentUserId()
+  const response = await authFetch(`/api/resumes?userId=${encodeURIComponent(userId)}`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load resumes: ${response.status}`)
+  }
+
+  const payload = await response.json()
+  return Array.isArray(payload) ? (payload as ResumeDocument[]) : []
+}
+
 export async function saveResumeDocument(resumeId: string, resume: ResumeDocument) {
   const userId = getCurrentUserId()
-  const response = await fetch(`/api/resumes/${encodeURIComponent(resumeId)}?userId=${encodeURIComponent(userId)}`, {
+  const response = await authFetch(`/api/resumes/${encodeURIComponent(resumeId)}?userId=${encodeURIComponent(userId)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -110,4 +123,22 @@ export async function saveResumeDocument(resumeId: string, resume: ResumeDocumen
   }
 
   return (await response.json()) as ResumeDocument
+}
+
+export async function deleteResumeDocument(resumeId: string) {
+  const userId = getCurrentUserId()
+  const response = await authFetch(`/api/resumes/${encodeURIComponent(resumeId)}?userId=${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('Content-Type') || ''
+
+    if (contentType.includes('application/json')) {
+      const errorPayload = (await response.json()) as { message?: string; error?: string }
+      throw new Error(errorPayload.message || errorPayload.error || `Failed to delete resume: ${response.status}`)
+    }
+
+    throw new Error(`Failed to delete resume: ${response.status}`)
+  }
 }

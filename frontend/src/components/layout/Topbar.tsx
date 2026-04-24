@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { clearAuthSession } from '../../lib/authApi'
 
 const pageTitles: Record<string, string> = {
   '/matches': 'Matches',
@@ -15,7 +16,7 @@ export default function Topbar() {
   const title = pageTitles[location.pathname] ?? 'Flash'
 
   const handleSignOut = () => {
-    localStorage.removeItem('isLoggedIn')
+    clearAuthSession()
     navigate('/login')
   }
 

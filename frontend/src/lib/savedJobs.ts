@@ -1,5 +1,6 @@
 import { getCurrentUserId } from './profileApi'
 import type { SavedJob } from '../types/savedJob'
+import { authFetch } from './authApi'
 
 const SAVED_JOBS_UPDATED_EVENT = 'saved-jobs-updated'
 
@@ -49,7 +50,7 @@ export function subscribeToSavedJobs(listener: () => void) {
 }
 
 async function fetchSavedJobsFromBackend() {
-  const response = await fetch(`/api/users/${getCurrentUserId()}/saved-jobs`)
+  const response = await authFetch(`/api/users/${getCurrentUserId()}/saved-jobs`)
 
   if (!response.ok) {
     throw new Error(`Failed to load saved jobs: ${response.status}`)
@@ -62,7 +63,7 @@ async function fetchSavedJobsFromBackend() {
 }
 
 async function replaceSavedJobsInBackend(items: SavedJob[]) {
-  const response = await fetch(`/api/users/${getCurrentUserId()}/saved-jobs`, {
+  const response = await authFetch(`/api/users/${getCurrentUserId()}/saved-jobs`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ export async function toggleSavedJob(job: SavedJob) {
   }
 
   try {
-    const response = await fetch(`/api/users/${getCurrentUserId()}/saved-jobs`, {
+    const response = await authFetch(`/api/users/${getCurrentUserId()}/saved-jobs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -143,7 +144,7 @@ export async function removeSavedJob(jobId: string) {
   const existing = await readSavedJobs()
 
   try {
-    const response = await fetch(`/api/users/${getCurrentUserId()}/saved-jobs/${encodeURIComponent(jobId)}`, {
+    const response = await authFetch(`/api/users/${getCurrentUserId()}/saved-jobs/${encodeURIComponent(jobId)}`, {
       method: 'DELETE',
     })
 

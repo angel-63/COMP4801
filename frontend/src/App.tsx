@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Outlet, Routes, Route } from 'react-router-dom'
 
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
@@ -11,23 +11,37 @@ import ProfilePage from './pages/app/ProfilePage'
 import AppLayout from './components/layout/AppLayout'
 import ResumeEditorPage from './pages/editor/ResumeEditorPage'
 import CoverLetterEditorPage from './pages/editor/CoverLetterEditorPage'
+import { hasAuthToken, hasPendingRegistration } from './lib/authApi'
+
+function RequireAuth() {
+  return hasAuthToken() ? <Outlet /> : <Navigate to="/" replace />
+}
+
+function RequireOnboardingAccess() {
+  return hasAuthToken() || hasPendingRegistration() ? <Outlet /> : <Navigate to="/" replace />
+}
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/onboarding" element={<RegistrationSteps />} />
-
-      <Route element={<AppLayout />}>
-        <Route path="/matches" element={<MatchesPage />} />
-        <Route path="/jobs" element={<JobsPage />} />
-        <Route path="/documents" element={<DocumentsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+      <Route element={<RequireOnboardingAccess />}>
+        <Route path="/onboarding" element={<RegistrationSteps />} />
       </Route>
 
-      <Route path="/documents/resume/:id" element={<ResumeEditorPage />} />
-      <Route path="/documents/cover-letter/:id" element={<CoverLetterEditorPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<AppLayout />}>
+          <Route path="/matches" element={<MatchesPage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+
+        <Route path="/documents/resume/:id" element={<ResumeEditorPage />} />
+        <Route path="/documents/cover-letter/:id" element={<CoverLetterEditorPage />} />
+      </Route>
     </Routes>
   )
 }

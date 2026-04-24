@@ -1,4 +1,5 @@
 import type { JobSummary, JobsResponse } from '../types/job'
+import { authFetch } from './authApi'
 
 type SearchJobsParams = {
   keyword?: string
@@ -35,7 +36,7 @@ export async function searchJobs(params: SearchJobsParams) {
   query.set('sortBy', params.sortBy ?? 'postedAt')
   query.set('direction', params.direction ?? 'desc')
 
-  const response = await fetch(`/api/jobs?${query.toString()}`)
+  const response = await authFetch(`/api/jobs?${query.toString()}`)
 
   if (!response.ok) {
     throw new Error(`Failed to load jobs: ${response.status}`)
@@ -46,7 +47,7 @@ export async function searchJobs(params: SearchJobsParams) {
 }
 
 export async function fetchJobById(id: string) {
-  const response = await fetch(`/api/jobs/${id}`)
+  const response = await authFetch(`/api/jobs/${id}`)
 
   if (!response.ok) {
     throw new Error(`Failed to load job details: ${response.status}`)

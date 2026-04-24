@@ -1,12 +1,14 @@
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { fetchUserProfileByEmail, setCurrentUserEmail, setCurrentUserId } from '../../lib/profileApi'
 import { useState } from 'react'
+import { fetchCurrentUserProfile } from '../../lib/profileApi'
+import { loginUser } from '../../lib/authApi'
 import illustration from '../../assets/Right.png'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -14,27 +16,29 @@ export default function LoginPage() {
 
     const form = new FormData(e.currentTarget)
     const email = String(form.get('email') || '').trim()
+    const password = String(form.get('password') || '')
 
-    if (!email) {
-      setError('Please enter your email.')
+    if (!email || !password) {
+      setError('Please enter your email and password.')
       return
     }
 
     try {
-      const profile = await fetchUserProfileByEmail(email)
-      setCurrentUserId(profile.id || email)
-      setCurrentUserEmail(email)
-    } catch (loadError) {
-      if (loadError instanceof Error && loadError.message.includes('404')) {
-        setError('No account was found for that email. Please register first.')
-      } else {
-        setError(loadError instanceof Error ? loadError.message : 'Unable to load your profile.')
-      }
-      return
-    }
+      setIsSubmitting(true)
+      await loginUser({ email, password })
 
-    localStorage.setItem('isLoggedIn', 'true')
-    navigate('/matches')
+      try {
+        await fetchCurrentUserProfile()
+      } catch (loadError) {
+        console.warn('Login succeeded but profile preload failed.', loadError)
+      }
+
+      navigate('/matches')
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to log in.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -91,9 +95,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full rounded-2xl bg-[#FCFF56] px-4 py-3 font-semibold text-black transition hover:opacity-95"
               >
-                Log in
+                {isSubmitting ? 'Logging in...' : 'Log in'}
               </button>
             </form>
 

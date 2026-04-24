@@ -1,7 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Copy, FileText, Trash2 } from 'lucide-react'
-import { fetchResumeDocument, saveResumeDocument, type ResumeDocument } from '../../lib/resumeApi'
+import { authFetch } from '../../lib/authApi'
+import {
+  deleteResumeDocument,
+  fetchResumeDocument,
+  listResumeDocuments,
+  saveResumeDocument,
+  type ResumeDocument,
+} from '../../lib/resumeApi'
+import { getCurrentUserId } from '../../lib/profileApi'
 
 type ResumeItem = {
   id: number
@@ -19,11 +27,7 @@ type CoverLetterItem = {
 type TabType = 'resume' | 'cover-letter'
 
 const MAX_DOCUMENTS_PER_TYPE = 3
-const RESUMES_STORAGE_KEY = 'documents:resumes'
-const COVER_LETTERS_STORAGE_KEY = 'documents:coverLetters'
 const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
-const RESUME_PREP_STORAGE_PREFIX = 'documents:resumePrep:'
-const COVER_LETTER_PREP_STORAGE_PREFIX = 'documents:coverLetterPrep:'
 const DEFAULT_PREVIEW_NAME = 'Your Name'
 const DEFAULT_SECTION_TITLES = {
   personalDetails: 'Personal Details',
@@ -36,28 +40,25 @@ const DEFAULT_SECTION_TITLES = {
   languages: 'Languages',
 } as const
 
-const defaultResumeData: ResumeItem[] = [
-  {
-    id: 1,
-    name: 'Resume name',
-    updatedAt: '26 Dec, 19:07',
-  },
-]
+const defaultResumeData: ResumeItem[] = []
 
-const defaultCoverLetterData: CoverLetterItem[] = [
-  {
-    id: 1,
-    name: 'Cover letter 1',
-    createdAt: '28 Dec 2025, 20:27',
-    updatedAt: '28 Dec 2025, 20:27',
-  },
-  {
-    id: 2,
-    name: 'Cover letter 2',
-    createdAt: '28 Dec 2025, 20:27',
-    updatedAt: '28 Dec 2025, 20:27',
-  },
-]
+const defaultCoverLetterData: CoverLetterItem[] = []
+
+function getResumesStorageKey() {
+  return `documents:resumes:${getCurrentUserId()}`
+}
+
+function getCoverLettersStorageKey() {
+  return `documents:coverLetters:${getCurrentUserId()}`
+}
+
+function getResumePrepStorageKey(resumeId: number) {
+  return `documents:resumePrep:${getCurrentUserId()}:${resumeId}`
+}
+
+function getCoverLetterPrepStorageKey(coverLetterId: number) {
+  return `documents:coverLetterPrep:${getCurrentUserId()}:${coverLetterId}`
+}
 
 function readStoredItems<T>(storageKey: string, fallback: T[]): T[] {
   if (typeof window === 'undefined') return fallback
@@ -82,6 +83,24 @@ function formatTimestamp(date = new Date()) {
     minute: '2-digit',
     hour12: false,
   }).format(date)
+}
+
+function formatStoredTimestamp(value?: string) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : formatTimestamp(date)
+}
+
+function mapResumeDocumentToItem(document: ResumeDocument): ResumeItem | null {
+  const id = Number(document.id)
+  if (!Number.isFinite(id)) return null
+
+  return {
+    id,
+    name: document.filename?.trim() || 'Resume',
+    updatedAt: formatStoredTimestamp(document.updatedAt) || formatTimestamp(),
+  }
 }
 
 function getNextDocumentName(items: { name: string }[], baseName: string) {
@@ -135,18 +154,12 @@ function clearApplicationPrepIntent() {
 
 function storeResumePrepIntent(resumeId: number, prepIntent: unknown) {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(
-    `${RESUME_PREP_STORAGE_PREFIX}${resumeId}`,
-    JSON.stringify(prepIntent),
-  )
+  window.localStorage.setItem(getResumePrepStorageKey(resumeId), JSON.stringify(prepIntent))
 }
 
 function storeCoverLetterPrepIntent(coverLetterId: number, prepIntent: unknown) {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(
-    `${COVER_LETTER_PREP_STORAGE_PREFIX}${coverLetterId}`,
-    JSON.stringify(prepIntent),
-  )
+  window.localStorage.setItem(getCoverLetterPrepStorageKey(coverLetterId), JSON.stringify(prepIntent))
 }
 
 function splitDescriptionToBullets(value: string) {
@@ -378,18 +391,49 @@ function buildExportPayload(resume: ResumeDocument) {
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
+  const resumesStorageKey = getResumesStorageKey()
+  const coverLettersStorageKey = getCoverLettersStorageKey()
   const [activeTab, setActiveTab] = useState<TabType>(() => getPreferredDocumentsTab())
-  const [resumes, setResumes] = useState<ResumeItem[]>(() =>
-    readStoredItems(RESUMES_STORAGE_KEY, defaultResumeData),
-  )
+  const [resumes, setResumes] = useState<ResumeItem[]>([])
   const [coverLetters, setCoverLetters] = useState<CoverLetterItem[]>(() =>
-    readStoredItems(COVER_LETTERS_STORAGE_KEY, defaultCoverLetterData),
+    readStoredItems(coverLettersStorageKey, defaultCoverLetterData),
   )
-  const [selectedResumeId, setSelectedResumeId] = useState<number>(
-    () => readStoredItems(RESUMES_STORAGE_KEY, defaultResumeData)[0]?.id ?? 1,
-  )
+  const [selectedResumeId, setSelectedResumeId] = useState<number>(0)
   const [busyResumeActionId, setBusyResumeActionId] = useState<number | null>(null)
   const [resumePreviews, setResumePreviews] = useState<Record<number, ResumeDocument>>({})
+  const [isResumeListLoading, setIsResumeListLoading] = useState(true)
+
+  const syncResumePreview = (id: number, document: ResumeDocument) => {
+    setResumePreviews((prev) => ({
+      ...prev,
+      [id]: document,
+    }))
+  }
+
+  const removeResumePreview = (id: number) => {
+    setResumePreviews((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
+
+  const hydrateResumeState = (documents: ResumeDocument[]) => {
+    const nextItems = documents
+      .map(mapResumeDocumentToItem)
+      .filter((item): item is ResumeItem => item !== null)
+    const nextPreviews = documents.reduce<Record<number, ResumeDocument>>((accumulator, document) => {
+      const item = mapResumeDocumentToItem(document)
+      if (item) {
+        accumulator[item.id] = document
+      }
+      return accumulator
+    }, {})
+
+    setResumes(nextItems)
+    setResumePreviews(nextPreviews)
+    window.localStorage.setItem(resumesStorageKey, JSON.stringify(nextItems))
+  }
 
   const createInitialResumeRecord = async (
     id: number,
@@ -407,19 +451,61 @@ export default function DocumentsPage() {
     } | null,
   ) => {
     try {
-      await saveResumeDocument(String(id), buildInitialResumeDocument(name, prepIntent))
+      const savedResume = await saveResumeDocument(
+        String(id),
+        buildInitialResumeDocument(name, prepIntent),
+      )
+      const resumeItem = mapResumeDocumentToItem(savedResume)
+      syncResumePreview(id, savedResume)
+      return resumeItem
     } catch (error) {
       console.error('Failed to create initial resume record.', error)
+      return null
     }
   }
 
   useEffect(() => {
-    window.localStorage.setItem(RESUMES_STORAGE_KEY, JSON.stringify(resumes))
-  }, [resumes])
+    window.localStorage.setItem(resumesStorageKey, JSON.stringify(resumes))
+  }, [resumes, resumesStorageKey])
 
   useEffect(() => {
-    window.localStorage.setItem(COVER_LETTERS_STORAGE_KEY, JSON.stringify(coverLetters))
-  }, [coverLetters])
+    window.localStorage.setItem(coverLettersStorageKey, JSON.stringify(coverLetters))
+  }, [coverLetters, coverLettersStorageKey])
+
+  useEffect(() => {
+    setCoverLetters(readStoredItems(coverLettersStorageKey, defaultCoverLetterData))
+  }, [resumesStorageKey, coverLettersStorageKey])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadResumes = async () => {
+      setIsResumeListLoading(true)
+
+      try {
+        const documents = await listResumeDocuments()
+
+        if (!isCancelled) {
+          hydrateResumeState(documents)
+        }
+      } catch (error) {
+        console.warn('Failed to load resumes from backend, using cached resume index.', error)
+        if (!isCancelled) {
+          setResumes(readStoredItems(resumesStorageKey, defaultResumeData))
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsResumeListLoading(false)
+        }
+      }
+    }
+
+    void loadResumes()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [resumesStorageKey])
 
   useEffect(() => {
     const preferredTab = getPreferredDocumentsTab()
@@ -466,23 +552,23 @@ export default function DocumentsPage() {
     }
 
     const id = Date.now()
-    const timestamp = formatTimestamp()
     const nextName = prepIntent.jobTitle?.trim()
       ? `Resume for ${prepIntent.jobTitle.trim()}`
       : getNextDocumentName(resumes, 'Resume')
 
-    const nextResume: ResumeItem = {
-      id,
-      name: nextName,
-      updatedAt: timestamp,
-    }
-
     storeResumePrepIntent(id, prepIntent)
     clearApplicationPrepIntent()
-    setResumes((prev) => [...prev, nextResume])
-    setSelectedResumeId(id)
-    void createInitialResumeRecord(id, nextName, prepIntent)
-    navigate(`/documents/resume/${id}`)
+    void (async () => {
+      const savedResume = await createInitialResumeRecord(id, nextName, prepIntent)
+      if (!savedResume) {
+        window.alert('Failed to create resume. Please try again.')
+        return
+      }
+
+      setResumes((prev) => [...prev, savedResume])
+      setSelectedResumeId(id)
+      navigate(`/documents/resume/${id}`)
+    })()
   }, [navigate, resumes.length])
 
   useEffect(() => {
@@ -497,35 +583,6 @@ export default function DocumentsPage() {
     }
   }, [resumes, selectedResumeId])
 
-  useEffect(() => {
-    let isCancelled = false
-
-    const loadResumePreviews = async () => {
-      const nextPreviews: Record<number, ResumeDocument> = {}
-
-      await Promise.all(
-        resumes.map(async (resume) => {
-          try {
-            const document = await fetchResumeDocument(String(resume.id))
-            nextPreviews[resume.id] = document
-          } catch {
-            // Skip unavailable previews and keep the card usable.
-          }
-        }),
-      )
-
-      if (!isCancelled) {
-        setResumePreviews(nextPreviews)
-      }
-    }
-
-    void loadResumePreviews()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [resumes])
-
   const canCreateResume = resumes.length < MAX_DOCUMENTS_PER_TYPE
   const canCreateCoverLetter = coverLetters.length < MAX_DOCUMENTS_PER_TYPE
 
@@ -533,19 +590,35 @@ export default function DocumentsPage() {
     if (!canCreateResume) return
 
     const id = Date.now()
-    const nextResume: ResumeItem = {
-      id,
-      name: getNextDocumentName(resumes, 'Resume'),
-      updatedAt: formatTimestamp(),
-    }
+    const nextName = getNextDocumentName(resumes, 'Resume')
 
-    setResumes((prev) => [...prev, nextResume])
-    setSelectedResumeId(id)
-    void createInitialResumeRecord(id, nextResume.name, null)
+    void (async () => {
+      const savedResume = await createInitialResumeRecord(id, nextName, null)
+      if (!savedResume) {
+        window.alert('Failed to create resume. Please try again.')
+        return
+      }
+
+      setResumes((prev) => [...prev, savedResume])
+      setSelectedResumeId(id)
+    })()
   }
 
   const handleDeleteResume = (id: number) => {
-    setResumes((prev) => prev.filter((item) => item.id !== id))
+    setBusyResumeActionId(id)
+
+    void (async () => {
+      try {
+        await deleteResumeDocument(String(id))
+        setResumes((prev) => prev.filter((item) => item.id !== id))
+        removeResumePreview(id)
+      } catch (error) {
+        console.error('Resume delete failed.', error)
+        window.alert(error instanceof Error ? error.message : 'Failed to delete resume.')
+      } finally {
+        setBusyResumeActionId(null)
+      }
+    })()
   }
 
   const handleCopyResume = async (resume: ResumeItem) => {
@@ -574,13 +647,17 @@ export default function DocumentsPage() {
         copiedDocument = null
       }
 
-      if (copiedDocument) {
-        await saveResumeDocument(String(id), copiedDocument)
+      if (!copiedDocument) {
+        throw new Error('Unable to load the source resume to copy.')
       }
+
+      const savedResume = await saveResumeDocument(String(id), copiedDocument)
+      const resumeItem = mapResumeDocumentToItem(savedResume)
+      syncResumePreview(id, savedResume)
 
       setResumes((prev) => [
         ...prev,
-        {
+        resumeItem ?? {
           id,
           name: nextName,
           updatedAt: timestamp,
@@ -600,7 +677,7 @@ export default function DocumentsPage() {
 
     try {
       const resumeDocument = await fetchResumeDocument(String(resume.id))
-      const response = await fetch('/api/resumes/export', {
+      const response = await authFetch('/api/resumes/export', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -769,10 +846,11 @@ export default function DocumentsPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteResume(item.id)}
-                    className="flex w-full items-center justify-center gap-2 rounded-md border-[3px] border-[#E63B3B] px-5 py-3 text-[16px] font-semibold text-[#E63B3B] transition hover:bg-[#E63B3B]/10"
+                    disabled={busyResumeActionId === item.id}
+                    className="flex w-full items-center justify-center gap-2 rounded-md border-[3px] border-[#E63B3B] px-5 py-3 text-[16px] font-semibold text-[#E63B3B] transition hover:bg-[#E63B3B]/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Trash2 size={18} />
-                    Delete
+                    {busyResumeActionId === item.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               )
@@ -790,7 +868,13 @@ export default function DocumentsPage() {
               </button>
             )}
 
-            {!canCreateResume && resumes.length === 0 && (
+            {isResumeListLoading && resumes.length === 0 && (
+              <div className="flex min-h-[275px] items-center justify-center rounded-md border border-white/15 bg-white/5 px-6 text-center text-white/70">
+                Loading resumes...
+              </div>
+            )}
+
+            {!isResumeListLoading && !canCreateResume && resumes.length === 0 && (
               <div className="flex min-h-[275px] items-center justify-center rounded-md border border-white/15 bg-white/5 px-6 text-center text-white/70">
                 Resume limit reached (3/3)
               </div>

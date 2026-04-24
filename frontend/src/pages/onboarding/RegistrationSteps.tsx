@@ -8,6 +8,7 @@ import {
   getCurrentUserId,
   saveUserProfile,
 } from "../../lib/profileApi";
+import { hasAuthToken, registerUser } from "../../lib/authApi";
 import type { UserProfile } from "../../types/profile";
 
 type PreferenceStepId =
@@ -75,6 +76,11 @@ type Section = {
 
 type RegistrationWizardProps = {
   onSubmit?: (data: FormData) => Promise<void> | void;
+};
+
+type PendingRegistration = Partial<FormData> & {
+  email?: string;
+  password?: string;
 };
 
 const sections: Section[] = [
@@ -426,11 +432,11 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
     const cachedProfile = getCachedUserProfile();
     const email = getCurrentUserEmail() || cachedProfile?.email || "";
 
-    let pendingRegistration: Partial<FormData> & { email?: string } = {};
+    let pendingRegistration: PendingRegistration = {};
 
     if (pendingRegistrationRaw) {
       try {
-        pendingRegistration = JSON.parse(pendingRegistrationRaw) as Partial<FormData> & { email?: string };
+        pendingRegistration = JSON.parse(pendingRegistrationRaw) as PendingRegistration;
       } catch {
         pendingRegistration = {};
       }
@@ -650,8 +656,20 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
 
     try {
       setIsSubmitting(true);
+      const pendingRegistrationRaw = window.localStorage.getItem("pendingRegistration");
+      let pendingRegistration: PendingRegistration = {};
+
+      if (pendingRegistrationRaw) {
+        try {
+          pendingRegistration = JSON.parse(pendingRegistrationRaw) as PendingRegistration;
+        } catch {
+          pendingRegistration = {};
+        }
+      }
+
       const email =
         getCurrentUserEmail() ||
+        pendingRegistration.email ||
         window.localStorage.getItem("pendingRegistrationEmail") ||
         getCachedUserProfile()?.email ||
         "";
@@ -662,6 +680,8 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
 
       if (onSubmit) {
         await onSubmit(formData);
+      } else if (!hasAuthToken() && pendingRegistration.password) {
+        await registerUser(profileSnapshot, pendingRegistration.password);
       } else {
         try {
           await saveUserProfile(getCurrentUserId(), profileSnapshot);

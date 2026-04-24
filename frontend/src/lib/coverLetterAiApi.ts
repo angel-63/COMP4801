@@ -1,4 +1,5 @@
 import type { ResumeTargetJob } from './resumeApi'
+import { authFetch } from './authApi'
 
 export type CoverLetterAiReviewResponse = {
   overallAssessment: string
@@ -47,7 +48,7 @@ function buildAiPayload(coverLetter: CoverLetterAiDocument, extra?: Record<strin
 }
 
 export async function reviewCoverLetterWithAi(coverLetter: CoverLetterAiDocument) {
-  const response = await fetch('/api/ai/cover-letter/review', {
+  const response = await authFetch('/api/ai/cover-letter/review', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ export async function improveCoverLetterTextWithAi(
     itemSubtitle?: string
   },
 ) {
-  const response = await fetch('/api/ai/cover-letter/improve', {
+  const response = await authFetch('/api/ai/cover-letter/improve', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

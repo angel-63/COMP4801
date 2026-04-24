@@ -1,4 +1,5 @@
 import type { ResumeDocument, ResumeTargetJob } from './resumeApi'
+import { authFetch } from './authApi'
 
 export type ResumeAiReviewResponse = {
   overallAssessment: string
@@ -88,7 +89,7 @@ function buildAiPayload(resume: ResumeDocument, extra?: Partial<ResumeAiPayload>
 }
 
 export async function reviewResumeWithAi(resume: ResumeDocument) {
-  const response = await fetch('/api/ai/resume/review', {
+  const response = await authFetch('/api/ai/resume/review', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ export async function improveResumeTextWithAi(
     itemSubtitle?: string
   },
 ) {
-  const response = await fetch('/api/ai/resume/improve', {
+  const response = await authFetch('/api/ai/resume/improve', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

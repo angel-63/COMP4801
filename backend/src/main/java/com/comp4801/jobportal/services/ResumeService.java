@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Date;
+import java.util.List;
 
 @Service
 public class ResumeService {
@@ -19,6 +20,10 @@ public class ResumeService {
     public Resume getResume(String resumeId, String userId) {
         return resumeRepository.findByIdAndUserId(resumeId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume not found: " + resumeId));
+    }
+
+    public List<Resume> listResumes(String userId) {
+        return resumeRepository.findAllByUserIdOrderByUpdatedAtDesc(userId);
     }
 
     public Resume saveResume(String resumeId, String userId, Resume resume) {
@@ -34,5 +39,12 @@ public class ResumeService {
         }
 
         return resumeRepository.save(resume);
+    }
+
+    public void deleteResume(String resumeId, String userId) {
+        Resume existing = resumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume not found: " + resumeId));
+
+        resumeRepository.deleteByIdAndUserId(existing.getId(), userId);
     }
 }

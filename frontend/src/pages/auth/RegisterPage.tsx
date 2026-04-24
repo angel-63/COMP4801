@@ -39,10 +39,10 @@ export default function RegisterPage() {
         firstName,
         lastName,
         email,
+        password,
       };
 
       localStorage.setItem("pendingRegistration", JSON.stringify(pendingRegistration));
-      localStorage.setItem("isLoggedIn", "true");
       setCurrentUserId(email);
       setCurrentUserEmail(email);
 
@@ -142,7 +142,7 @@ export default function RegisterPage() {
                 disabled={isSubmitting}
                 className="w-full rounded-2xl bg-[#FCFF56] px-4 py-3 font-semibold text-black transition hover:opacity-95"
               >
-                {isSubmitting ? "Preparing..." : "Create account"}
+                {isSubmitting ? "Preparing..." : "Continue"}
               </button>
             </form>
 

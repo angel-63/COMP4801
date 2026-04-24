@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, ListFilter } from 'lucide-react'
 import { fetchJobById, searchJobs } from '../../lib/jobsApi'
+import { authFetch } from '../../lib/authApi'
 import { getCurrentUserEmail, getCurrentUserId } from '../../lib/profileApi'
+import { listResumeDocuments } from '../../lib/resumeApi'
 import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
 import type { JobSummary } from '../../types/job'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -10,6 +12,7 @@ import type { UserProfile } from '../../types/profile'
 
 const JOBS_PER_PAGE = 20
 const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
+const MAX_DOCUMENTS_PER_TYPE = 3
 
 const EMPLOYMENT_TYPE_OPTIONS = [
   { label: 'Full-time', value: 'fulltime' },
@@ -55,6 +58,28 @@ const SORT_OPTIONS = [
   { label: 'Recommended', value: 'recommended' },
   { label: 'Newest', value: 'postedAt' },
 ]
+
+function getCoverLettersStorageKey() {
+  return `documents:coverLetters:${getCurrentUserId()}`
+}
+
+function getResumesStorageKey() {
+  return `documents:resumes:${getCurrentUserId()}`
+}
+
+function readStoredDocumentCount(storageKey: string) {
+  if (typeof window === 'undefined') return 0
+
+  const rawValue = window.localStorage.getItem(storageKey)
+  if (!rawValue) return 0
+
+  try {
+    const parsed = JSON.parse(rawValue)
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch {
+    return 0
+  }
+}
 
 type RecommendationScoreMap = Record<string, number>
 
@@ -158,7 +183,7 @@ export default function JobsPage() {
           query.set('userId', userId)
         }
 
-        const response = await fetch(`/api/jobs/recommendations?${query.toString()}`)
+        const response = await authFetch(`/api/jobs/recommendations?${query.toString()}`)
         if (!response.ok) {
           throw new Error(`Failed to load recommendation scores: ${response.status}`)
         }
@@ -364,12 +389,34 @@ export default function JobsPage() {
   }
 
   const handlePrepareResume = () => {
-    storeApplicationPrepContext('resume')
-    closeApplyModal()
-    navigate('/documents')
+    void (async () => {
+      try {
+        const resumes = await listResumeDocuments()
+        if (resumes.length >= MAX_DOCUMENTS_PER_TYPE) {
+          setCopyStatus('Resume limit reached (3/3). Delete an existing resume to create a new one.')
+          return
+        }
+      } catch {
+        const cachedCount = readStoredDocumentCount(getResumesStorageKey())
+        if (cachedCount >= MAX_DOCUMENTS_PER_TYPE) {
+          setCopyStatus('Resume limit reached (3/3). Delete an existing resume to create a new one.')
+          return
+        }
+      }
+
+      storeApplicationPrepContext('resume')
+      closeApplyModal()
+      navigate('/documents')
+    })()
   }
 
   const handlePrepareCoverLetter = () => {
+    const coverLetterCount = readStoredDocumentCount(getCoverLettersStorageKey())
+    if (coverLetterCount >= MAX_DOCUMENTS_PER_TYPE) {
+      setCopyStatus('Cover letter limit reached (3/3). Delete an existing cover letter to create a new one.')
+      return
+    }
+
     storeApplicationPrepContext('cover-letter')
     closeApplyModal()
     navigate('/documents')

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { fetchCurrentUserProfile, getCachedUserProfile } from '../../lib/profileApi'
+import { clearAuthSession } from '../../lib/authApi'
 import type { UserProfile } from '../../types/profile'
 
 export default function AppLayout() {
@@ -64,9 +65,7 @@ export default function AppLayout() {
   }, [profile?.firstName, profile?.fullName, profile?.lastName])
 
   const handleLogout = () => {
-    window.localStorage.removeItem('isLoggedIn')
-    window.localStorage.removeItem('currentUserId')
-    window.localStorage.removeItem('currentUserEmail')
+    clearAuthSession()
     window.localStorage.removeItem('userProfile')
     window.localStorage.removeItem('profile')
     window.localStorage.removeItem('pendingRegistration')

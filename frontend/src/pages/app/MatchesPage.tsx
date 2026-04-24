@@ -13,7 +13,9 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react'
+import { authFetch } from '../../lib/authApi'
 import { getCurrentUserEmail, getCurrentUserId } from '../../lib/profileApi'
+import { listResumeDocuments } from '../../lib/resumeApi'
 import { readSavedJobs, subscribeToSavedJobs, toggleSavedJob } from '../../lib/savedJobs'
 
 type MatchJob = {
@@ -53,6 +55,30 @@ type RecommendedJobApiResponse = {
     relevanceScore: number
     semanticScore?: number | null
     combinedScore: number
+  }
+}
+
+const MAX_DOCUMENTS_PER_TYPE = 3
+
+function getCoverLettersStorageKey() {
+  return `documents:coverLetters:${getCurrentUserId()}`
+}
+
+function getResumesStorageKey() {
+  return `documents:resumes:${getCurrentUserId()}`
+}
+
+function readStoredDocumentCount(storageKey: string) {
+  if (typeof window === 'undefined') return 0
+
+  const rawValue = window.localStorage.getItem(storageKey)
+  if (!rawValue) return 0
+
+  try {
+    const parsed = JSON.parse(rawValue)
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch {
+    return 0
   }
 }
 
@@ -304,7 +330,7 @@ export default function MatchesPage() {
     query.set('page', String(page))
     query.set('size', String(MATCH_BATCH_SIZE))
 
-    const response = await fetch(`/api/jobs/recommendations?${query.toString()}`)
+    const response = await authFetch(`/api/jobs/recommendations?${query.toString()}`)
     if (!response.ok) {
       throw new Error(`Failed to load recommendations: ${response.status}`)
     }
@@ -434,12 +460,34 @@ export default function MatchesPage() {
   }
 
   const handlePrepareResume = () => {
-    storeApplicationPrepContext('resume')
-    closeApplyModal()
-    navigate('/documents')
+    void (async () => {
+      try {
+        const resumes = await listResumeDocuments()
+        if (resumes.length >= MAX_DOCUMENTS_PER_TYPE) {
+          setCopyStatus('Resume limit reached (3/3). Delete an existing resume to create a new one.')
+          return
+        }
+      } catch {
+        const cachedCount = readStoredDocumentCount(getResumesStorageKey())
+        if (cachedCount >= MAX_DOCUMENTS_PER_TYPE) {
+          setCopyStatus('Resume limit reached (3/3). Delete an existing resume to create a new one.')
+          return
+        }
+      }
+
+      storeApplicationPrepContext('resume')
+      closeApplyModal()
+      navigate('/documents')
+    })()
   }
 
   const handlePrepareCoverLetter = () => {
+    const coverLetterCount = readStoredDocumentCount(getCoverLettersStorageKey())
+    if (coverLetterCount >= MAX_DOCUMENTS_PER_TYPE) {
+      setCopyStatus('Cover letter limit reached (3/3). Delete an existing cover letter to create a new one.')
+      return
+    }
+
     storeApplicationPrepContext('cover-letter')
     closeApplyModal()
     navigate('/documents')

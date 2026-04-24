@@ -1,4 +1,5 @@
 import type { UserProfile } from '../types/profile'
+import { authFetch } from './authApi'
 
 export const DEFAULT_USER_ID = 'demo-user'
 const CURRENT_USER_STORAGE_KEY = 'currentUserId'
@@ -22,7 +23,7 @@ export function setCurrentUserEmail(email: string) {
 }
 
 export async function fetchUserProfile(userId: string) {
-  const response = await fetch(`/api/users/${userId}`)
+  const response = await authFetch(`/api/users/${userId}`)
 
   if (!response.ok) {
     throw new Error(`Failed to load profile: ${response.status}`)
@@ -34,7 +35,7 @@ export async function fetchUserProfile(userId: string) {
 }
 
 export async function fetchUserProfileByEmail(email: string) {
-  const response = await fetch(`/api/users?email=${encodeURIComponent(email)}`)
+  const response = await authFetch(`/api/users?email=${encodeURIComponent(email)}`)
 
   if (!response.ok) {
     throw new Error(`Failed to load profile: ${response.status}`)
@@ -57,7 +58,7 @@ export async function fetchCurrentUserProfile() {
 }
 
 export async function saveUserProfile(userId: string, profile: UserProfile) {
-  const response = await fetch(`/api/users/${userId}`, {
+  const response = await authFetch(`/api/users/${userId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

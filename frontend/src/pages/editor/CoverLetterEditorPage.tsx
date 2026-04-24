@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Sparkles, Trash2, WandSparkles, Pencil } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { authFetch } from '../../lib/authApi'
 import { improveCoverLetterTextWithAi, reviewCoverLetterWithAi, type CoverLetterAiImproveResponse, type CoverLetterAiReviewResponse } from '../../lib/coverLetterAiApi'
 import type { ResumeTargetJob } from '../../lib/resumeApi'
-import { fetchCurrentUserProfile } from '../../lib/profileApi'
+import { fetchCurrentUserProfile, getCurrentUserId } from '../../lib/profileApi'
 
 type CoverLetterLink = {
   id: number
@@ -37,11 +38,17 @@ type ProfileSnapshot = {
   links: CoverLetterLink[]
 }
 
-const COVER_LETTERS_STORAGE_KEY = 'documents:coverLetters'
 const APPLICATION_PREP_STORAGE_KEY = 'jobs:applicationPrep'
-const COVER_LETTER_PREP_STORAGE_PREFIX = 'documents:coverLetterPrep:'
 const DEFAULT_PROFILE_NAME = 'Your Name'
 const EXPORT_REQUEST_TIMEOUT_MS = 60000
+
+function getCoverLettersStorageKey() {
+  return `documents:coverLetters:${getCurrentUserId()}`
+}
+
+function getCoverLetterPrepStorageKey(coverLetterId: string) {
+  return `documents:coverLetterPrep:${getCurrentUserId()}:${coverLetterId}`
+}
 
 type AiDialogState =
   | {
@@ -113,7 +120,7 @@ function EditableHeading({
 }
 
 function getDetailStorageKey(id: string) {
-  return `documents:coverLetter:${id}`
+  return `documents:coverLetter:${getCurrentUserId()}:${id}`
 }
 
 function formatTimestamp(date = new Date()) {
@@ -144,7 +151,7 @@ function buildDefaultDraft(documentName: string): CoverLetterDraft {
 function readCoverLetterDocuments(): CoverLetterDocumentMeta[] {
   if (typeof window === 'undefined') return []
 
-  const rawValue = window.localStorage.getItem(COVER_LETTERS_STORAGE_KEY)
+  const rawValue = window.localStorage.getItem(getCoverLettersStorageKey())
   if (!rawValue) return []
 
   try {
@@ -202,7 +209,7 @@ function clearApplicationPrepContext() {
 function getStoredCoverLetterPrepContext(coverLetterId: string) {
   if (typeof window === 'undefined' || !coverLetterId) return null
 
-  const rawValue = window.localStorage.getItem(`${COVER_LETTER_PREP_STORAGE_PREFIX}${coverLetterId}`)
+  const rawValue = window.localStorage.getItem(getCoverLetterPrepStorageKey(coverLetterId))
   if (!rawValue) return null
 
   try {
@@ -225,7 +232,7 @@ function getStoredCoverLetterPrepContext(coverLetterId: string) {
 
 function clearStoredCoverLetterPrepContext(coverLetterId: string) {
   if (typeof window === 'undefined' || !coverLetterId) return
-  window.localStorage.removeItem(`${COVER_LETTER_PREP_STORAGE_PREFIX}${coverLetterId}`)
+  window.localStorage.removeItem(getCoverLetterPrepStorageKey(coverLetterId))
 }
 
 function mapPrepContextToTargetJob(
@@ -676,7 +683,7 @@ export default function CoverLetterEditorPage() {
                 : item,
             )
 
-      window.localStorage.setItem(COVER_LETTERS_STORAGE_KEY, JSON.stringify(nextDocuments))
+      window.localStorage.setItem(getCoverLettersStorageKey(), JSON.stringify(nextDocuments))
       setCoverLetterName(normalizedName)
       setSaveStatus(`Last saved at ${timestamp}`)
       if (targetJob) {
@@ -696,7 +703,7 @@ export default function CoverLetterEditorPage() {
     try {
       const controller = new AbortController()
       timeoutId = window.setTimeout(() => controller.abort(), EXPORT_REQUEST_TIMEOUT_MS)
-      const response = await fetch('/api/cover-letters/export', {
+      const response = await authFetch('/api/cover-letters/export', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
