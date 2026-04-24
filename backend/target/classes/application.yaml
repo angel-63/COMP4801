@@ -1,6 +1,6 @@
 jwt:
   secret: TdL0EjB97Sz0yCb1CWKwnzmI1fzseb18wE5wQCXL6OG
-  expiration: 360000 # 6mins, add one more 0 for 1hr
+  expiration: 3600000 # 5 0s 1hr; 4 0s 6min
 
 spring:
   application:
@@ -11,6 +11,13 @@ spring:
   data:
     mongodb:
       field-naming-strategy: org.springframework.data.mapping.model.SnakeCaseFieldNamingStrategy
+    redis:
+      host: redis-17416.crce264.ap-east-1-1.ec2.cloud.redislabs.com
+      port: 17416
+      username: default
+      password: G3YuljbN0KTKtfnt4ylk5VOnVYv09Byx
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 
 #recommender:
 #  url: http://localhost:8001

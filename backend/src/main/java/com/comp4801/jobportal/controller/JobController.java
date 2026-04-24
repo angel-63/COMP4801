@@ -1,9 +1,7 @@
 package com.comp4801.jobportal.controller;
 
 import com.comp4801.jobportal.dto.JobResponse;
-import com.comp4801.jobportal.dto.MatchResult;
 import com.comp4801.jobportal.dto.RecommendationResultResponse;
-import com.comp4801.jobportal.dto.RecommendedJobResponse;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.services.JobService;
 //import com.comp4801.jobportal.services.RecommendationService;
@@ -13,12 +11,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/jobs")
@@ -68,45 +64,11 @@ public class JobController {
         return ResponseEntity.ok(JobResponse.from(job));
     }
 
-//    @GetMapping("/recommendations")
-//    public ResponseEntity<List<RecommendedJobResponse>> getRecommendations(
-//            @RequestParam(required = false) String userId,
-//            @RequestParam(required = false) String email,
-//            @RequestParam(defaultValue = "0") int page,
-//            @RequestParam(defaultValue = "10") int size
-//    ) {
-//        int safePage = Math.max(page, 0);
-//        int safeSize = Math.max(size, 1);
-//        int fromIndex = safePage * safeSize;
-//
-//        List<RecommendationResultResponse> rankedResults = recommendationService.recommendJobsForUser(userId, email)
-//                .stream()
-//                .sorted((left, right) -> Double.compare(right.combinedScore(), left.combinedScore()))
-//                .toList();
-//
-//        if (fromIndex >= rankedResults.size()) {
-//            return ResponseEntity.ok(List.of());
-//        }
-//
-//        int toIndex = Math.min(fromIndex + safeSize, rankedResults.size());
-//        List<RecommendationResultResponse> results = rankedResults.subList(fromIndex, toIndex);
-//
-//        Map<String, Job> jobsById = jobService.getJobsByIds(results.stream().map(RecommendationResultResponse::jobId).toList())
-//                .stream()
-//                .collect(Collectors.toMap(Job::id, Function.identity()));
-//
-//        List<RecommendedJobResponse> response = results.stream()
-//                .map(result -> jobsById.containsKey(result.jobId())
-//                        ? new RecommendedJobResponse(JobResponse.from(jobsById.get(result.jobId())), result)
-//                        : null)
-//                .filter(item -> item != null)
-//                .toList();
-//
-//        return ResponseEntity.ok(response);
-//    }
-
     @GetMapping("/recommendations")
-    public ResponseEntity<List<MatchResult>> getRecommendations(@RequestParam String userId) {
-        return ResponseEntity.ok(jobService.recommendJobsForUser(userId));
+    public ResponseEntity<List<RecommendationResultResponse>> getRecommendations(
+            @AuthenticationPrincipal(expression = "username") String id,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.substring(7);
+        return ResponseEntity.ok(jobService.recommendJobsForUser(id, token));
     }
 }

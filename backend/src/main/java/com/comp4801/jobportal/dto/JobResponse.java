@@ -26,6 +26,7 @@ public record JobResponse(
         String originalSourceSite,
         String originalPostId,
         List<String> skillTags,
+        List<String> optionalSkillTags,
         String roleCategory,
         String dedupKey
 ) {
@@ -50,6 +51,7 @@ public record JobResponse(
                 job.originalSourceSite(),
                 job.originalPostId(),
                 job.skillTags(),
+                job.optionalSkillTags(),
                 job.roleCategory(),
                 job.dedupKey()
         );

@@ -5,8 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuthTokenFilter extends OncePerRequestFilter {
@@ -40,6 +41,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         if (jwtUtil.validateJwtToken(token)) {
             String userId = jwtUtil.getUserIdFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
+            log.info("Token received: {}", token);
+            log.info("Validation result: {}", jwtUtil.validateJwtToken(token));
+            log.info("Extracted userId: {}", userId);
+            log.info("Extracted userDetails: {}", userDetails);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

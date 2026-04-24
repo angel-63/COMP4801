@@ -1,9 +1,10 @@
+import base64
 from datetime import datetime
 from enum import Enum
 from typing import Optional
 from zoneinfo import ZoneInfo
 from bson import Binary, ObjectId
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, field_serializer
 
 
 class EmploymentType(Enum):
@@ -102,7 +103,7 @@ class JobJobsdb(JobBase):
     experience_level: Optional[ExperienceLevel] = None
     
 class Job(JobBase):
-    id: ObjectId = Field(alias="_id")
+    id: str = Field(alias="_id")
     experience_level: Optional[ExperienceLevel] = None
     
     model_config = ConfigDict(
@@ -112,6 +113,19 @@ class Job(JobBase):
         str_strip_whitespace=True,
         arbitrary_types_allowed=True
     )
+    
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_objectid_to_str(cls, v: any) -> any:
+        if isinstance(v, ObjectId):
+            return str(v)
+        return v
+    
+    @field_serializer('company_logo')
+    def serialize_logo(self, logo: Optional[bytes]) -> Optional[str]:
+        if logo is None:
+            return None
+        return base64.b64encode(logo).decode('utf-8')
 
 
 # class JobLinkedIn(JobBase):
@@ -501,7 +515,7 @@ SKILLS_RULES = {
         "scrum", "itil", "devops", "database administration", "cloud computing",
         "machine learning", "deep learning", "tensorflow", "pytorch", "windows server",
         "scikit-learn", "keras", "nlp", "computer vision", "data science", "pandas",
-        "numpy", "big data", "spark", "pyspark", "hadoop", "LLM", "generative ai", "ai governance"
+        "numpy", "big data", "spark", "pyspark", "hadoop", "LLM", "generative ai", "ai governance", "mongodb"
     },
     "Legal": {
         "legal research", "westlaw", "lexisnexis", "contract drafting", "corporate law",

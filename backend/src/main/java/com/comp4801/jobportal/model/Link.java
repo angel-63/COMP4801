@@ -1,5 +1,6 @@
 package com.comp4801.jobportal.model;
 
+import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,8 +14,8 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @Builder
 public class Link {
     @Id
-//    @Field("_id")
-    private String id;
+    @Builder.Default
+    private String id = (new ObjectId()).toString();
     private String site;
     private String url;
 }

@@ -1,9 +1,11 @@
 package com.comp4801.jobportal.dto;
 
+import com.comp4801.jobportal.model.Job;
+
 public record RecommendationResultResponse(
-        String jobId,
+        PythonJobResponse job,
         double relevanceScore,
-        Double semanticScore,
+        double semanticScore,
         double combinedScore
 ) {
 }

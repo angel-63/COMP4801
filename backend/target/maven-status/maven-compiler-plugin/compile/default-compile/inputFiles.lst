@@ -2,6 +2,7 @@
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/config/AppConfig.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/config/AuthTokenFilter.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/config/JacksonConfig.java
+/Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/config/RedisConfig.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/config/SecurityConfig.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/controller/ApiExceptionHandler.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/controller/CoverLetterAiController.java
@@ -18,9 +19,8 @@
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/CoverLetterExportRequest.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/JobResponse.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/LoginRequest.java
-/Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/MatchResult.java
+/Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/PythonJobResponse.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/RecommendationResultResponse.java
-/Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/RecommendedJobResponse.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/RegistrationRequest.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/ResumeAiImproveResponse.java
 /Users/angelluk/Desktop/Yr5/COMP4801/COMP4801/backend/src/main/java/com/comp4801/jobportal/dto/ResumeAiRequest.java

@@ -55,4 +55,11 @@ public class JwtUtil {
         }
         return false;
     }
+
+    public Date getTokenExpiryFromToken(String token){
+        return Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getExpiration();
+    }
 }

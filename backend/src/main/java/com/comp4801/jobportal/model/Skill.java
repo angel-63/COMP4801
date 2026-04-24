@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 @Data
@@ -12,9 +14,10 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @Builder
 public class Skill {
 //    @Field("_id")
-    private String id;
+    @Id
+    @Builder.Default
+    private String id = (new ObjectId()).toString();
 //    @Field("skill")
-    // var name update as skill instead of name
-    private String name;
+    private String skill;
     private String proficiency;
 }

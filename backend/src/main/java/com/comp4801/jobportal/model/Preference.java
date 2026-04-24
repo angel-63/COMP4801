@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.util.List;
@@ -13,10 +15,11 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Preference {
-//    @Field("_id")
-    private String id;
+    @Id
+    @Builder.Default
+    private String id = (new ObjectId()).toString();
 //    @Field("job_function")
-    private List<String> jobFunctions;
+    private List<String> jobFunction;
     private List<String> industries;
 //    @Field("employment_type")
 //    private List<String> employmentTypes;
@@ -24,10 +27,10 @@ public class Preference {
 //    private List<String> experienceLevels;
 //    @Field("job_mode")
 //    private List<String> jobModes;
-    private List<EmploymentType> employmentTypes;
-    private List<ExperienceLevel> experienceLevels;
-    private List<JobMode> jobModes;
+    private List<EmploymentType> employmentType;
+    private List<ExperienceLevel> experienceLevel;
+    private List<JobMode> jobMode;
     private Integer minSalary;
 //    @Field("role_category")
-    private List<String> roleCategories;
+    private List<String> roleCategory;
 }

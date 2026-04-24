@@ -24,6 +24,7 @@ com/comp4801/jobportal/dto/ResumeAiRequest$LanguageItem.class
 com/comp4801/jobportal/model/ResumeContentItem.class
 com/comp4801/jobportal/model/ResumeLanguageItem.class
 com/comp4801/jobportal/model/Preference$PreferenceBuilder.class
+com/comp4801/jobportal/dto/PythonJobResponse.class
 com/comp4801/jobportal/dto/CoverLetterAiRequest$CoverLetterPayload.class
 com/comp4801/jobportal/model/User$UserBuilder.class
 com/comp4801/jobportal/model/ResumeSkillItem$ResumeSkillItemBuilder.class
@@ -65,6 +66,7 @@ com/comp4801/jobportal/dto/CoverLetterExportRequest$Recipient.class
 com/comp4801/jobportal/dto/ResumeExportRequest$SkillItem.class
 com/comp4801/jobportal/dto/ResumeExportRequest$ExperienceItem.class
 com/comp4801/jobportal/dto/ResumeAiRequest$ContentItem.class
+com/comp4801/jobportal/config/RedisConfig.class
 com/comp4801/jobportal/model/ResumeSectionTitles$ResumeSectionTitlesBuilder.class
 com/comp4801/jobportal/model/ResumeLinkItem.class
 com/comp4801/jobportal/repository/ResumeRepository.class
@@ -72,7 +74,6 @@ com/comp4801/jobportal/dto/ResumeAiRequest$EducationItem.class
 com/comp4801/jobportal/model/Language.class
 com/comp4801/jobportal/model/Language$LanguageBuilder.class
 com/comp4801/jobportal/model/ResumeSkillItem.class
-com/comp4801/jobportal/dto/RecommendedJobResponse.class
 com/comp4801/jobportal/controller/JobController.class
 com/comp4801/jobportal/model/ResumeLinkItem$ResumeLinkItemBuilder.class
 com/comp4801/jobportal/model/ResumeLanguageItem$ResumeLanguageItemBuilder.class
@@ -97,7 +98,6 @@ com/comp4801/jobportal/services/ResumeExportService.class
 com/comp4801/jobportal/model/SavedJob$SavedJobBuilder.class
 com/comp4801/jobportal/model/Resume.class
 com/comp4801/jobportal/dto/ResumeAiReviewResponse.class
-com/comp4801/jobportal/dto/MatchResult.class
 com/comp4801/jobportal/model/EmploymentType.class
 com/comp4801/jobportal/controller/ResumeController.class
 com/comp4801/jobportal/model/ResumeContentItem$ResumeContentItemBuilder.class

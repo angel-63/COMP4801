@@ -27,6 +27,7 @@ async def shutdown_event():
 
 @app.post("/match", response_model=list[MatchResult])
 async def match_jobs(request: User):
+    print("Fields in request:", request.__fields__.keys())
     user = request
     jobs_cursor = db.get_collection("job").find()
     jobs = []
@@ -54,7 +55,7 @@ async def match_jobs(request: User):
         combined = compute_hybrid_score(user, job, tag_score, sem_score)
 
         results.append(MatchResult(
-            jobId=str(job.id),
+            job=job,
             relevanceScore=tag_score,
             semanticScore=sem_score,
             # ibcf_score=collab_score,
@@ -63,13 +64,7 @@ async def match_jobs(request: User):
 
     # Sort by combined score descending
     results.sort(key=lambda x: x.combinedScore, reverse=True)
-    
-    TOP_N = 40
-    FINAL_N = 10
-
-    top_candidates = results[:TOP_N]
-    
-    return random.sample(top_candidates, min(FINAL_N, len(top_candidates)))
+    return results
 
 @app.get("/health")
 async def health():
@@ -78,7 +73,7 @@ async def health():
 def main(args=None):
     parser = argparse.ArgumentParser(description="Job Recommendation Engine")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind")
+    parser.add_argument("--port", type=int, default=8001, help="Port to bind")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     
     args = parser.parse_args(args)

@@ -30,17 +30,17 @@ public class User {
 //    @Field("cover_letter_count")
     private Integer coverLetterCount;
     private List<Education> education;
-//    @Field("work_experience")
+    @Field("work_experience")
     private List<WorkExperience> workExperience;
-//    @Field("project")
+    @Field("project")
     private List<Project> project;
-//    @Field("skill_tags")
+    @Field("skill_tags")
     private List<Skill> skillTags;
 //    @Field("language")
     private List<Language> language;
 //    @Field("certificate")
     private List<Certificate> certificate;
-//    @Field("preference_tags")
+    @Field("preference_tags")
     private Preference preferenceTags;
     private List<Link> links;
 //    @Field("saved_jobs")

@@ -1,6 +1,7 @@
 package com.comp4801.jobportal.config;
 
 import com.comp4801.jobportal.services.CustomUserDetailsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,15 +13,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 public class SecurityConfig {
-    private final AuthTokenFilter authTokenFilter;
-    private final CustomUserDetailsService userDetailsService;
-
-    public SecurityConfig(AuthTokenFilter authTokenFilter,
-                          CustomUserDetailsService userDetailsService,
-                          BCryptPasswordEncoder passwordEncoder) {
-        this.authTokenFilter = authTokenFilter;
-        this.userDetailsService = userDetailsService;
-    }
+    @Autowired
+    private AuthTokenFilter authTokenFilter;
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

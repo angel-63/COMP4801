@@ -88,11 +88,11 @@
 //        payload.put("location", defaultString(user.getLocation()));
 //        payload.put("resume_count", user.getResumeCount() == null ? 0 : user.getResumeCount());
 //        payload.put("cover_letter_count", user.getCoverLetterCount() == null ? 0 : user.getCoverLetterCount());
-//        payload.put("preference_tags", buildPreference(user.getPreferences()));
+//        payload.put("preference_tags", buildPreference(user.getPreferenceTags()));
 //        payload.put("education", buildEducation(user.getEducation()));
 //        payload.put("work_experience", buildWorkExperience(user.getWorkExperience()));
-//        payload.put("project", buildProjects(user.getProjects()));
-//        payload.put("skill_tags", buildSkills(user.getSkills()));
+//        payload.put("project", buildProjects(user.getProject()));
+//        payload.put("skill_tags", buildSkills(user.getSkillTags()));
 //        payload.put("language", List.of());
 //        payload.put("certificate", List.of());
 //        payload.put("links", buildLinks(user.getLinks()));
@@ -145,8 +145,8 @@
 //        return projects.stream().map(item -> {
 //            Map<String, Object> payload = new LinkedHashMap<>();
 //            payload.put("_id", item.getId());
-//            payload.put("project_name", defaultString(item.getName()));
-//            payload.put("project_owner", defaultString(item.getOwner()));
+//            payload.put("project_name", defaultString(item.getProjectName()));
+//            payload.put("project_owner", defaultString(item.getProjectOwner()));
 //            payload.put("start_date", formatInstant(item.getStartDate()));
 //            payload.put("end_date", formatInstant(item.getEndDate()));
 //            payload.put("location", defaultString(item.getLocation()));

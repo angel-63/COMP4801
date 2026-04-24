@@ -1,6 +1,6 @@
 package com.comp4801.jobportal.services;
 
-import com.comp4801.jobportal.dto.MatchResult;
+import com.comp4801.jobportal.dto.RecommendationResultResponse;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.repository.JobRepository;
@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.RedisSystemException;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -16,14 +19,24 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
 public class JobService {
-    private final JobRepository jobRepository;
-    private final RecommendationClient recommendationClient;
-    private final UserService userService;
+    private static final String REC_CACHE_PREFIX = "rec:";
+    @Autowired
+    private JobRepository jobRepository;
+    @Autowired
+    private RecommendationClient recommendationClient;
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private JwtUtil jwtUtil;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     public Page<Job> searchJobs(String keyword,
                                 List<String> employmentTypes,
@@ -72,8 +85,28 @@ public class JobService {
         return jobs;
     }
 
-    public List<MatchResult> recommendJobsForUser(String userId) {
-        User profile = userService.getUserById(userId);
-        return recommendationClient.getRecommendations(profile);
+    public List<RecommendationResultResponse> recommendJobsForUser(String id, String token) {
+        Date expiration = jwtUtil.getTokenExpiryFromToken(token);
+        long ttl = (expiration.getTime() - System.currentTimeMillis()) / 1000;
+        if (ttl <= 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token expired – please log in again");
+        }
+        String cacheKey = REC_CACHE_PREFIX + id;
+        ValueOperations<String, Object> ops = redisTemplate.opsForValue();
+        @SuppressWarnings("unchecked")
+        List<RecommendationResultResponse> cached = (List<RecommendationResultResponse>) ops.get(cacheKey);
+        if (cached != null && !cached.isEmpty()) {
+            return cached;
+        }
+        // cache miss
+        return fetchAndCacheRecommendations(id, ttl);
+    }
+
+    public List<RecommendationResultResponse> fetchAndCacheRecommendations(String id, long ttl) {
+        User profile = userService.getUserById(id);
+        List<RecommendationResultResponse> results = recommendationClient.getRecommendations(profile);
+        String cacheKey = REC_CACHE_PREFIX + id;
+        redisTemplate.opsForValue().set(cacheKey, results, ttl, TimeUnit.SECONDS);
+        return results;
     }
 }

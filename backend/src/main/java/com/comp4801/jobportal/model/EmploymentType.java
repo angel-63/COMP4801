@@ -1,5 +1,6 @@
 package com.comp4801.jobportal.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
 @Getter
@@ -12,10 +13,15 @@ public enum EmploymentType {
     INTERNSHIP("internship"),
     OTHER("other");
 
-    private final String[] values;
+    private final String value;
 
-    EmploymentType(String... values) {
-        this.values = values;
+    EmploymentType(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
     }
 
 }

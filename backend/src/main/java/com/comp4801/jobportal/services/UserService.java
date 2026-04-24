@@ -7,6 +7,7 @@ import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class UserService {
         List<Skill> skillEntities = request.getSkills().stream()
                 .map(skillName -> {
                     Skill skill = new Skill();
-                    skill.setName(skillName);
+                    skill.setSkill(skillName);
                     skill.setProficiency(null);
                     return skill;
                 })
@@ -48,6 +49,7 @@ public class UserService {
                 .phone(request.getPhone())
                 .location(request.getLocation())
                 .preferenceTags(request.getPreferences())
+                .skillTags(skillEntities)
                 .links(request.getLinks() != null ? request.getLinks() : new ArrayList<>())
                 .education(request.getEducations() != null ? request.getEducations() : new ArrayList<>())
                 .workExperience(request.getExperiences() != null ? request.getExperiences() : new ArrayList<>())
