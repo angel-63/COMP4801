@@ -1,5 +1,6 @@
 package com.comp4801.jobportal.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
@@ -21,4 +22,14 @@ public enum JobMode {
         return value;
     }
 
+    @JsonCreator
+    public static JobMode fromValue(String value) {
+        if (value == null) return null;
+        for (JobMode type : JobMode.values()) {
+            if (type.value.equalsIgnoreCase(value)) {
+                return type;
+            }
+        }
+        return ONSITE;
+    }
 }

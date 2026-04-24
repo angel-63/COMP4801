@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -15,9 +14,8 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class Certificate {
-    @Field("_id")
-    @Builder.Default
-    private String id = (new ObjectId()).toString();
+    @Id
+    private String id;
     @Field("certificate_name")
     private String certificateName;
     @Field("issuing_organization")

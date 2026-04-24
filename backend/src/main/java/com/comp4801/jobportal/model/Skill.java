@@ -16,7 +16,7 @@ public class Skill {
 //    @Field("_id")
     @Id
     @Builder.Default
-    private String id = (new ObjectId()).toString();
+    private String id = new ObjectId().toString();
 //    @Field("skill")
     private String skill;
     private String proficiency;

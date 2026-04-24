@@ -9,7 +9,7 @@ import com.comp4801.jobportal.services.JwtUtil;
 import com.comp4801.jobportal.services.UserService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @AllArgsConstructor
@@ -40,6 +41,7 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegistrationRequest request) {
+        log.info("Request body bound: " + request);
         User user = userService.registerUser(request);
         String token = jwtUtil.generateToken(user.getId());
         Map<String, String> response = new HashMap<>();

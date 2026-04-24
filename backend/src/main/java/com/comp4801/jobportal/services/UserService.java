@@ -41,6 +41,32 @@ public class UserService {
                 })
                 .toList();
 
+        // set objectId for subdocuments
+        // Ensure IDs on all nested objects
+        if (request.getLinks() != null) {
+            request.getLinks().forEach(link -> {
+                if (link.getId() == null) link.setId(new ObjectId().toString());
+            });
+        }
+        if (request.getEducations() != null) {
+            request.getEducations().forEach(edu -> {
+                if (edu.getId() == null) edu.setId(new ObjectId().toString());
+            });
+        }
+        if (request.getExperiences() != null) {
+            request.getExperiences().forEach(exp -> {
+                if (exp.getId() == null) exp.setId(new ObjectId().toString());
+            });
+        }
+        if (request.getProjects() != null) {
+            request.getProjects().forEach(proj -> {
+                if (proj.getId() == null) proj.setId(new ObjectId().toString());
+            });
+        }
+        if (request.getPreferences() != null) {
+            request.getPreferences().setId(new ObjectId().toString());
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))

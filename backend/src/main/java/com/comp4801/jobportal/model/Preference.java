@@ -4,9 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.util.List;
 
@@ -16,8 +14,7 @@ import java.util.List;
 @Builder
 public class Preference {
     @Id
-    @Builder.Default
-    private String id = (new ObjectId()).toString();
+    private String id;
 //    @Field("job_function")
     private List<String> jobFunction;
     private List<String> industries;

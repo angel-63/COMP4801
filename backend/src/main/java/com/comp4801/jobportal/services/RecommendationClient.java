@@ -24,7 +24,7 @@ public class RecommendationClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RecommendationClient(RestTemplate restTemplate,
-                                @Value("${recommender.url:http://localhost:8001}") String recommenderUrl) {
+                                @Value("${recommender.url}") String recommenderUrl) {
         this.restTemplate = restTemplate;
         this.recommenderUrl = recommenderUrl;
     }
