@@ -13,6 +13,9 @@ services:
         fromSecret: MONGODB_URI
       - key: MONGODB_NAME
         value: job_db 
+      - key: REDIS_PASSWORD
+        sync: false
+        fromSecret: REDIS_PASSWORD
 
   - type: web
     name: recommender
