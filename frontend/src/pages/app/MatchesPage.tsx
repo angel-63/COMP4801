@@ -187,6 +187,8 @@ const fallbackMatches: MatchJob[] = [
   },
 ]
 
+void fallbackMatches
+
 const swipeConfidenceThreshold = 12000
 const swipePower = (offset: number, velocity: number) =>
   Math.abs(offset) * velocity
@@ -300,7 +302,7 @@ function sanitizeJobDescription(value?: string) {
 export default function MatchesPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [matches, setMatches] = useState<MatchJob[]>(fallbackMatches)
+  const [matches, setMatches] = useState<MatchJob[]>([])
   const [isLoadingMatches, setIsLoadingMatches] = useState(true)
   const [isLoadingNextBatch, setIsLoadingNextBatch] = useState(false)
   const [matchBatchPage, setMatchBatchPage] = useState(0)
@@ -316,7 +318,7 @@ export default function MatchesPage() {
   const isEnd = index >= matches.length
   const currentJob = useMemo(() => matches[index], [matches, index])
 
-  const loadMatchBatch = async (page: number, useFallbackOnEmpty = false) => {
+  const loadMatchBatch = async (page: number) => {
     const email = getCurrentUserEmail()
     const userId = getCurrentUserId()
     const query = new URLSearchParams()
@@ -336,26 +338,20 @@ export default function MatchesPage() {
     }
 
     const data = (await response.json()) as RecommendedJobApiResponse[]
-    const nextMatches = data.map(mapRecommendationToMatchJob)
-
-    if (nextMatches.length === 0 && useFallbackOnEmpty) {
-      return fallbackMatches
-    }
-
-    return nextMatches
+    return data.map(mapRecommendationToMatchJob)
   }
 
   useEffect(() => {
     const loadInitialMatches = async () => {
       try {
-        const nextMatches = await loadMatchBatch(0, true)
+        const nextMatches = await loadMatchBatch(0)
         setMatches(nextMatches)
         setMatchBatchPage(0)
         setHasMoreMatches(nextMatches.length >= MATCH_BATCH_SIZE)
         setIndex(0)
       } catch (error) {
         console.error(error)
-        setMatches(fallbackMatches)
+        setMatches([])
         setMatchBatchPage(0)
         setHasMoreMatches(false)
       } finally {
@@ -537,6 +533,34 @@ export default function MatchesPage() {
       <div className="mx-auto flex min-h-[calc(100vh-120px)] max-w-[1100px] flex-col items-center justify-center px-6 py-10 text-white/75">
         <div className="h-14 w-14 animate-spin rounded-full border-4 border-white/15 border-t-[#E7F12E]" />
         <p className="mt-4 text-[15px] text-white/70">Loading matches...</p>
+      </div>
+    )
+  }
+
+  if (!isLoadingMatches && matches.length === 0) {
+    return (
+      <div className="mx-auto flex min-h-[60vh] max-w-[1200px] items-center justify-center px-6 text-white">
+        <div className="max-w-[560px] rounded-3xl border border-white/10 bg-white/5 px-8 py-10 text-center">
+          <h2 className="text-[28px] font-semibold">No matches yet</h2>
+          <p className="mt-3 text-[15px] leading-7 text-white/70">
+            We couldn&apos;t find any recommended jobs for your current profile and preferences.
+            Try updating your profile, preferences, or check back later.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              to="/profile"
+              className="rounded-2xl bg-[#E7F12E] px-5 py-3 font-semibold text-black transition hover:opacity-95"
+            >
+              Update Profile
+            </Link>
+            <Link
+              to="/jobs"
+              className="rounded-2xl border border-white/15 px-5 py-3 font-semibold text-white transition hover:bg-white/5"
+            >
+              Browse Jobs
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
