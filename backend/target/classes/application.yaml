@@ -15,7 +15,7 @@ spring:
       host: redis-17416.crce264.ap-east-1-1.ec2.cloud.redislabs.com
       port: 17416
       username: default
-      password: G3YuljbN0KTKtfnt4ylk5VOnVYv09Byx
+      password: ${REDIS_PASSWORD}
   jackson:
     property-naming-strategy: SNAKE_CASE
 
