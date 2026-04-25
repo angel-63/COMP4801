@@ -588,7 +588,7 @@ function buildProfileSkills(profile: any): SkillItem[] {
 
   return profile.skills.map((item: Record<string, unknown>, index: number) => ({
     id: index + 1,
-    name: String(item.name ?? ''),
+    name: String(item.skill ?? ''),
     proficiency: String(item.proficiency ?? 'Expert'),
   }))
 }
@@ -636,8 +636,8 @@ function buildProfileProjects(profile: any): ExperienceItem[] {
 
   return profile.projects.map((item: Record<string, unknown>, index: number) => ({
     id: index + 1,
-    title: String(item.name ?? ''),
-    employer: String(item.owner ?? ''),
+    title: String(item.projectName ?? ''),
+    employer: String(item.projectOwner ?? ''),
     startDate: formatProfileMonthYear(item.startDate),
     endDate: formatProfileMonthYear(item.endDate),
     location: String(item.location ?? ''),

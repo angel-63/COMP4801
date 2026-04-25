@@ -254,7 +254,7 @@ function buildInitialResumeDocument(
       : [],
     skills: Array.isArray(profile?.skills)
       ? profile.skills.map((item: Record<string, unknown>) => ({
-          name: String(item.name ?? ''),
+          name: String(item.skill ?? ''),
           proficiency: String(item.proficiency ?? 'Expert'),
         }))
       : [],
@@ -270,8 +270,8 @@ function buildInitialResumeDocument(
       : [],
     projects: Array.isArray(profile?.projects)
       ? profile.projects.map((item: Record<string, unknown>) => ({
-          title: String(item.name ?? ''),
-          employer: String(item.owner ?? ''),
+          title: String(item.projectName ?? ''),
+          employer: String(item.projectOwner ?? ''),
           startDate: formatProfileMonthYear(item.startDate),
           endDate: formatProfileMonthYear(item.endDate),
           location: String(item.location ?? ''),
