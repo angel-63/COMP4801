@@ -11,7 +11,6 @@ class EmploymentType(Enum):
     FULL_TIME = "fulltime"
     PART_TIME = ("parttime")
     CONTRACT = ("contract")
-    TEMPORARY = ("temporary")
     INTERNSHIP = ("internship")
     OTHER = ("other")
     
@@ -21,6 +20,7 @@ class EmploymentType(Enum):
             "Full-time":   cls.FULL_TIME,
             "Part-time":   cls.PART_TIME,
             "Contract":    cls.CONTRACT,
+            "Temporary":    cls.CONTRACT,
             "Internship":  cls.INTERNSHIP,
             "Other": cls.OTHER,
         }
@@ -125,7 +125,7 @@ class Job(JobBase):
     def serialize_logo(self, logo: Optional[bytes]) -> Optional[str]:
         if logo is None:
             return None
-        return base64.b64encode(logo).decode('utf-8')
+        return "data:image/png;base64," + base64.b64encode(logo).decode('utf-8')
 
 
 # class JobLinkedIn(JobBase):
@@ -171,26 +171,36 @@ INDUSTIRES_RULES = {
     ],
     'Robotics': [
         r'\brobotics\b',
+        r'\brobotics\s+&\s+automation\b',          
     ],
     'Gaming': [
         r'\bgaming\b',
     ],
     'Software Development': [
         r'\bsoftware\s+development\b',
+        r'\bai\s+&\s+machine\s+learning\b',
+        r'\bconsumer\s+software\b',                
+        r'\benterprise\s+software\b',              
     ],
     'IT Services & Consulting': [
         r'\bit\s+services\b',
         r'\bit\s+consulting\b',
+        r'\bcyber\s+security\b',                  
     ],
     'Technology': [
         r'\btechnology,\s+information\s+and\s+internet\b',
         r'\btechnology,\s+information\s+and\s+media\b',
         r'\btechnology\b',
+        r'\bAI\s+&\s+machine\s+learning\b',
+        r'\bdata\s+&\s+analytics\b',               
+        r'\bvr\s+&\s+ar\b',                       
+        r'\bquantitative\s+finance\b',             
     ],
     'Hardware Manufacturing': [
         r'\bcomputers\s+and\s+electronics\s+manufacturing\b',
         r'\bsemiconductor\s+manufacturing\b',
         r'\bcomputer\s+hardware\s+manufacturing\b',
+        r'\bhardware\b',                           
     ],
     'Telecommunications': [
         r'\btelecommunications\b',
@@ -199,12 +209,16 @@ INDUSTIRES_RULES = {
         r'\binternet\s+marketplace\s+platforms\b',
         r'\binternet\s+publishing\b',
         r'\bblockchain\b',
+        r'\bcrypto\b',                             
+        r'\bweb3\b',                               
     ],
     'Media & Entertainment': [
         r'\bbroadcast\s+media\b',
         r'\bmedia\s+production\b',
         r'\bpublishing\b',
         r'\bnewspaper\s+publishing\b',
+        r'\bentertainment\b',                      
+        r'\bvr\s+&\s+ar\b',                       
     ],
     'Retail Luxury Goods': [
         r'\bretail\s+luxury\s+goods\b',
@@ -218,32 +232,32 @@ INDUSTIRES_RULES = {
     'Consumer Goods': [
         r'\bcosmetics\b',
         r'\bpersonal\s+care\s+product\s+manufacturing\b',
+        r'\bconsumer\s+goods\b',                  
     ],
     'Food & Beverage': [
         r'\bfood\s+and\s+beverage\b',
         r'\bfood\s+&\s+beverage\b',
         r'\bbeverage\s+manufacturing\b',
-        # r'\btobacco\s+manufacturing\b',
+        r'\bfood\s+&\s+agriculture\b',            
     ],
     'Aerospace & Aviation': [
         r'\bairlines\s+and\s+aviation\b',
-        # r'\baviation\s+and\s+aerospace\s+component\s+manufacturing\b',
+        r'\baerospace\b',                          
+        r'\baviation\b',
     ],
     'Automotive': [
         r'\bmotor\s+vehicle\s+manufacturing\b',
         r'\btruck\s+transportation\b',
+        r'\bautomotive\s+&\s+transportation\b',    
     ],
     'Transportation & Logistics': [
         r'\brail\s+transportation\b',
         r'\btransportation,\s+logistics,\s+supply\s+chain\b',
+        r'\bautomotive\s+&\s+transportation\b',    
     ],
     'Manufacturing': [
-        r'\bmanufacturing\b'
-        # r'\bautomation\s+machinery\s+manufacturing\b',
-        # r'\bindustrial\s+machinery\s+manufacturing\b',
-        # r'\bchemical\s+manufacturing\b',
-        # r'\bappliances,\s+electrical,\s+and\s+electronics\s+manufacturing\b',
-        # r'\bfurniture\s+and\s+home\s+furnishings\s+manufacturing\b',
+        r'\bmanufacturing\b',
+        r'\bindustrial\s+&\s+manufacturing\b',     
     ],
     'Construction': [
         r'\bconstruction\b',
@@ -256,22 +270,22 @@ INDUSTIRES_RULES = {
     'Pharmaceuticals & Biotech': [
         r'\bpharmaceutical\s+manufacturing\b',
         r'\bbiotechnology\s+research\b',
+        r'\bbiotechnology\b',                      
     ],
     'Healthcare Services': [
         r'\bhospitals\s+and\s+health\s+care\b',
-        r'\bmedical\b'
-        # r'\bmedical\s+practices\b',
+        r'\bmedical\b',
+        r'\bhealthcare\b',                         
     ],
-    # 'Medical Equipment': [
-    #     r'\bmedical\s+equipment\s+manufacturing\b',
-    # ],
     'Business Consulting': [
         r'\bbusiness\s+consulting\s+and\s+services\b',
         r'\bstrategic\s+management\s+services\b',
+        r'\bconsulting\b',                         
     ],
     'Legal Services': [
         r'\blaw\s+practice\b',
         r'\blegal\s+services\b',
+        r'\blegal\b',                              
     ],
     'Human Resources & Staffing': [
         r'\bhuman\s+resources\s+services\b',
@@ -287,6 +301,7 @@ INDUSTIRES_RULES = {
     ],
     'Design & Creative': [
         r'\binterior\s+design\b',
+        r'\bdesign\b',                             
     ],
     'Events Services': [
         r'\bevents\s+services\b',
@@ -301,15 +316,19 @@ INDUSTIRES_RULES = {
         r'\bnon-profit\b',
         r'\bphilanthropic\s+fundraising\b',
         r'\bcivic\s+and\s+social\s+organizations\b',
+        r'\bsocial\s+impact\b',                    
     ],
     'Government & Public Administration': [
         r'\bgovernment\s+administration\b',
         r'\bgovernment\s+relations\b',
         r'\blegislative\s+offices\b',
+        r'\bdefence\b',                            
+        r'\bgovernment\s+&\s+public\s+sector\b',   
     ],
     'Utilities': [
         r'\butilities\b',
         r'\brenewable\s+energy\b',
+        r'\benergy\b',                             
     ],
     'Environmental Services': [
         r'\benvironmental\s+services\b',
@@ -323,16 +342,16 @@ INDUSTIRES_RULES = {
     ],
     'Insurance': [
         r'\binsurance\b',
-        # r'\binsurance\s+agencies\s+and\s+brokerages\b',
     ],
     'Accounting': [
         r'\baccounting\b',
     ],
     'Financial Services': [
         r'\bfinancial\s+services\b',
+        r'\bfintech\b',               
+        r'\bquantitative\s+finance\b',
     ],
 }
-
 JOB_FUNCTION_RULES = {
     "Accounting": [r'\baccounting\b', r'\bauditing\b'],
     "Administrative": [r'\badministrative\b', r'\badministration\b'],
@@ -347,7 +366,7 @@ JOB_FUNCTION_RULES = {
     "General Business": [r'\bgeneral\b'],
     "Healthcare Services": [r'\bhealthcare\b', r'\bmedical\b'],
     "Human Resources": [r'\bhuman\s+resources\b', r'\bhr\b'],
-    "Information Technology": [r'\binformation\s+technology\b', r'\bit\b', r'\bsoftware\b', r'\bprogramming\b'],
+    "Information Technology": [r'\binformation\s+technology\b', r'\bit\b', r'\bsoftware\b', r'\bprogramming\b', r'\btechnology\b'],
     "Legal": [r'\blegal\b', r'\blaw\b'],
     # "Management": [r'\bmanagement\b', r'\bmanager\b'],
     "Manufacturing": [r'\bmanufacturing\b', r'\bproduction\b'],
@@ -389,7 +408,8 @@ ROLES_DICTIONARY = {
         "Coach"
     ],
     "Engineering": [
-        "Aeronautical Engineer", "Software Developer", "Petroleum Drilling Engineer", "Software Engineer", "Coding Engineer"
+        "Aeronautical Engineer", "Software Developer", "Petroleum Drilling Engineer", "Software Engineer", "Coding Engineer",
+        "Frontend developer", "Backend developer", "Full-stack developer", "Data analyst","Product manager"
     ],
     "Entrepreneurship": [
         "Founder", "Board Member", "Partner", "Owner"
@@ -404,7 +424,8 @@ ROLES_DICTIONARY = {
         "Recruiter", "Staffing Specialist", "Compensation and Benefits Administrator", "Employee Wellness Manager", "Organisational Development Specialist", "Internal Corporate Trainer"
     ],
     "Information Technology": [
-        "Chief Information Officer", "Database Developer", "IT Auditor", "SAP Consultant", "Telecommunications Manager"
+        "Chief Information Officer", "Database Developer", "IT Auditor", "SAP Consultant", "Telecommunications Manager", "Software engineer",
+        "Frontend developer", "Backend developer", "Full-stack developer", "Data analyst","Product manager"
     ],
     "Legal": [
         "Attorney", "Paralegal", "Judiciary"
@@ -487,7 +508,7 @@ SKILLS_RULES = {
     "Engineering": {
         r'\bcad\b', "autocad", "solidworks", "catia", "matlab", "python", "c++", "java",
         "simulation software", "finite element analysis", "circuit design", "embedded systems",
-        "robotics", "plc programming", "mechanical design", "process engineering"
+        "robotics", "plc programming", "mechanical design", "process engineering", "html/css"
     },
     "Entrepreneurship": {
         "business planning", "financial forecasting", "fundraising", "investor relations",

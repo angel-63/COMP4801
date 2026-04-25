@@ -68,7 +68,7 @@ type ProjectDraft = {
     startDate: string
     endDate: string
     description: string
-    technologiesText: string
+    technologies: string
   }>
 }
 
@@ -315,8 +315,8 @@ export default function ProfilePage() {
                 institution: item.institution.trim(),
                 degree: item.degree.trim(),
                 fieldOfStudy: item.fieldOfStudy.trim(),
-                startDate: item.startDate.trim(),
-                endDate: item.endDate.trim(),
+                startDate: monthYearToIso(item.startDate.trim()),
+                endDate: monthYearToIso(item.endDate.trim()),
               })),
           }
           break
@@ -331,8 +331,8 @@ export default function ProfilePage() {
                 position: item.position.trim(),
                 company: item.company.trim(),
                 location: item.location.trim(),
-                startDate: item.startDate.trim(),
-                endDate: item.endDate.trim(),
+                startDate: monthYearToIso(item.startDate.trim()),
+                endDate: monthYearToIso(item.endDate.trim()),
               })),
           }
           break
@@ -344,13 +344,13 @@ export default function ProfilePage() {
               .filter((item) => hasAnyValue(Object.values(item)))
               .map((item, index) => ({
                 id: item.id || `project-${index + 1}`,
-                name: item.name.trim(),
-                owner: item.owner.trim(),
+                projectName: item.name.trim(),
+                projectOwner: item.owner.trim(),
                 location: item.location.trim(),
-                startDate: item.startDate.trim(),
-                endDate: item.endDate.trim(),
+                startDate: monthYearToIso(item.startDate.trim()),
+                endDate: monthYearToIso(item.endDate.trim()),
                 description: item.description.trim(),
-                technologies: splitCommaList(item.technologiesText),
+                technologies: splitCommaList(item.technologies),
               })),
           }
           break
@@ -360,13 +360,13 @@ export default function ProfilePage() {
             ...nextProfile,
             skills: splitCommaList(drafts.skills.skillsText).map((skillName, index) => ({
               id: `skill-${index + 1}`,
-              name: skillName,
+              skill: skillName,
             })),
           }
           break
         }
       }
-
+      console.log("new profile: ", nextProfile)
       await persistProfile(nextProfile)
       setEditingSection(null)
     } catch (sectionError) {
@@ -744,7 +744,7 @@ export default function ProfilePage() {
                                             startDate: '',
                                             endDate: '',
                                             description: '',
-                                            technologiesText: '',
+                                            technologies: '',
                                           },
                                         ],
                                 })
@@ -779,7 +779,7 @@ export default function ProfilePage() {
                                 startDate: '',
                                 endDate: '',
                                 description: '',
-                                technologiesText: '',
+                                technologies: '',
                               },
                             ],
                           })
@@ -795,7 +795,7 @@ export default function ProfilePage() {
                     <div className="space-y-5">
                       {projects.map((item, index) => (
                         <div key={item.id || index}>
-                          <p className="text-[15px] font-medium text-white">{item.name || 'Untitled project'}</p>
+                          <p className="text-[15px] font-medium text-white">{item.projectName || 'Untitled project'}</p>
                           {(item.technologies?.length ?? 0) > 0 ? (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {item.technologies?.map((tech) => (
@@ -821,8 +821,8 @@ export default function ProfilePage() {
                   {skills.length > 0 ? (
                     <div className="flex flex-wrap gap-3">
                       {skills.map((skill, index) => (
-                        <YellowSkillTag key={skill.id || `${skill.name}-${index}`}>
-                          {skill.name || 'Unnamed skill'}
+                        <YellowSkillTag key={skill.id || `${skill.skill}-${index}`}>
+                          {skill.skill || 'Unnamed skill'}
                         </YellowSkillTag>
                       ))}
                     </div>
@@ -836,11 +836,11 @@ export default function ProfilePage() {
                   onEdit={() => navigate('/onboarding?mode=preferences&returnTo=%2Fprofile')}
                 >
                   <div className="space-y-4">
-                    <PreferenceRow label="Job functions" values={preferences.jobFunctions} />
+                    <PreferenceRow label="Job functions" values={preferences.jobFunction} />
                     <PreferenceRow label="Industries" values={preferences.industries} />
-                    <PreferenceRow label="Employment types" values={preferences.employmentTypes} />
-                    <PreferenceRow label="Experience levels" values={preferences.experienceLevels} />
-                    <PreferenceRow label="Job modes" values={preferences.jobModes} />
+                    <PreferenceRow label="Employment types" values={preferences.employmentType} />
+                    <PreferenceRow label="Experience levels" values={preferences.experienceLevel} />
+                    <PreferenceRow label="Job modes" values={preferences.jobMode} />
                     <InfoRow
                       label="Minimum salary"
                       value={preferences.minSalary ? `${preferences.minSalary}k` : 'Not provided'}
@@ -987,7 +987,7 @@ function EditableProjectFields({
         </div>
       </div>
       <textarea value={item.description} onChange={(e) => onChange({ ...item, description: e.target.value })} className={textareaClassName} placeholder="Description" />
-      <input value={item.technologiesText} onChange={(e) => onChange({ ...item, technologiesText: e.target.value })} className={inputClassName} placeholder="Technologies, separated by commas" />
+      <input value={item.technologies} onChange={(e) => onChange({ ...item, technologies: e.target.value })} className={inputClassName} placeholder="Technologies, separated by commas" />
     </div>
   )
 }
@@ -1078,6 +1078,27 @@ function EmptyState({ label }: { label: string }) {
   return <p className="text-[15px] text-white/65">{label}</p>
 }
 
+// Convert ISO string to MM/YYYY
+function isoToMonthYear(isoString?: string): string {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '';
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${year}`;
+}
+
+function monthYearToIso(monthYear: string): string {
+  if (!monthYear) return '';
+  const parts = monthYear.split('/');
+  if (parts.length !== 2) return '';
+  const month = parseInt(parts[0], 10);
+  const year = parseInt(parts[1], 10);
+  if (isNaN(month) || isNaN(year) || month < 1 || month > 12) return '';
+  // Use UTC to avoid timezone shifts
+  return new Date(Date.UTC(year, month - 1, 1)).toISOString();
+}
+
 function buildDrafts(profile: UserProfile): SectionDrafts {
   return {
     personal: {
@@ -1103,8 +1124,8 @@ function buildDrafts(profile: UserProfile): SectionDrafts {
               institution: item.institution || '',
               degree: item.degree || '',
               fieldOfStudy: item.fieldOfStudy || '',
-              startDate: item.startDate || '',
-              endDate: item.endDate || '',
+              startDate: isoToMonthYear(item.startDate) || '',
+              endDate: isoToMonthYear(item.endDate) || '',
             }))
           : [{ institution: '', degree: '', fieldOfStudy: '', startDate: '', endDate: '' }],
     },
@@ -1116,8 +1137,8 @@ function buildDrafts(profile: UserProfile): SectionDrafts {
               position: item.position || '',
               company: item.company || '',
               location: item.location || '',
-              startDate: item.startDate || '',
-              endDate: item.endDate || '',
+              startDate: isoToMonthYear(item.startDate) || '',
+              endDate: isoToMonthYear(item.endDate) || '',
             }))
           : [{ position: '', company: '', location: '', startDate: '', endDate: '' }],
     },
@@ -1126,13 +1147,13 @@ function buildDrafts(profile: UserProfile): SectionDrafts {
         profile.projects && profile.projects.length > 0
           ? profile.projects.map((item) => ({
               id: item.id,
-              name: item.name || '',
-              owner: item.owner || '',
+              name: item.projectName || '',
+              owner: item.projectOwner || '',
               location: item.location || '',
-              startDate: item.startDate || '',
-              endDate: item.endDate || '',
+              startDate: isoToMonthYear(item.startDate) || '',
+              endDate: isoToMonthYear(item.endDate) || '',
               description: item.description || '',
-              technologiesText: (item.technologies || []).join(', '),
+              technologies: (item.technologies || []).join(', '),
             }))
           : [
               {
@@ -1142,12 +1163,12 @@ function buildDrafts(profile: UserProfile): SectionDrafts {
                 startDate: '',
                 endDate: '',
                 description: '',
-                technologiesText: '',
+                technologies: '',
               },
             ],
     },
     skills: {
-      skillsText: (profile.skills || []).map((skill) => skill.name || '').filter(Boolean).join(', '),
+      skillsText: (profile.skills || []).map((skill) => skill.skill || '').filter(Boolean).join(', '),
     },
   }
 }

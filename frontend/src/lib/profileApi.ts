@@ -58,6 +58,7 @@ export async function fetchCurrentUserProfile() {
 }
 
 export async function saveUserProfile(userId: string, profile: UserProfile) {
+  console.log(JSON.stringify(profile));
   const response = await authFetch(`/api/users/${userId}`, {
     method: 'PUT',
     headers: {

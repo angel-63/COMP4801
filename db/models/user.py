@@ -45,6 +45,7 @@ class Project(BaseModel):
     start_date: datetime
     end_date: Optional[datetime] = None
     location: str
+    description: Optional[str] = None
 
 class Certificate(BaseModel):
     id: str = Field(alias="_id", default_factory=ObjectId)

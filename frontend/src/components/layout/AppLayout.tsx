@@ -5,6 +5,19 @@ import { fetchCurrentUserProfile, getCachedUserProfile } from '../../lib/profile
 import { clearAuthSession } from '../../lib/authApi'
 import type { UserProfile } from '../../types/profile'
 
+
+const isTokenExpired = (): boolean => {
+  const token = localStorage.getItem('authToken');
+  if (!token) return true;
+  try {
+    const payloadBase64 = token.split('.')[1];
+    const payload = JSON.parse(atob(payloadBase64));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
+
 export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -73,6 +86,20 @@ export default function AppLayout() {
     setIsAccountMenuOpen(false)
     navigate('/')
   }
+
+  useEffect(() => {
+  const checkToken = () => {
+    if (isTokenExpired()) {
+      handleLogout(); // re‑use your existing logout function
+    }
+  };
+
+  // periodic check whether jwt is expired (every 60s)
+  checkToken();
+  const intervalId = setInterval(checkToken, 60000);
+
+  return () => clearInterval(intervalId);
+}, []);
 
   return (
     <div className="min-h-screen bg-[#41413F] text-white">

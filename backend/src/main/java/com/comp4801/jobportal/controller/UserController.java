@@ -3,6 +3,7 @@ package com.comp4801.jobportal.controller;
 import com.comp4801.jobportal.dto.LoginRequest;
 import com.comp4801.jobportal.dto.RegistrationRequest;
 import com.comp4801.jobportal.dto.UserProfileResponse;
+import com.comp4801.jobportal.dto.UserUpdateRequest;
 import com.comp4801.jobportal.model.SavedJob;
 import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.services.JwtUtil;
@@ -41,7 +42,7 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegistrationRequest request) {
-        log.info("Request body bound: " + request);
+        log.info("REGISTER - Request body bound: " + request);
         User user = userService.registerUser(request);
         String token = jwtUtil.generateToken(user.getId());
         Map<String, String> response = new HashMap<>();
@@ -64,7 +65,10 @@ public class UserController {
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserProfileResponse> saveUser(@PathVariable String id, @RequestBody User user) {
+    public ResponseEntity<UserProfileResponse> saveUser(@PathVariable String id, @RequestBody UserUpdateRequest updateRequest) {
+        log.info("SAVE - Request body found: " + updateRequest);
+        User user = updateRequest.toUser();
+        user.setId(id);
         return ResponseEntity.ok(UserProfileResponse.from(userService.saveUser(id, user)));
     }
 

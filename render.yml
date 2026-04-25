@@ -1,12 +1,10 @@
 services:
   - type: web
     name: backend
-    runtime: image
+    runtime: docker
     repo: https://github.com/angel-63/COMP4801
     branch: main
     rootDir: backend
-    buildCommand: ./mvnw clean package
-    startCommand: java -jar target/*.jar
     envVars:
       - key: MONGODB_URI
         sync: false
@@ -16,6 +14,10 @@ services:
       - key: REDIS_PASSWORD
         sync: false
         fromSecret: REDIS_PASSWORD
+      - key: JWT_SECRET
+        sync: false
+      - key: RECOMMENDER_URL
+        value: http://recommender:8001
 
   - type: web
     name: recommender
@@ -24,7 +26,7 @@ services:
     branch: main
     rootDir: recommender
     buildCommand: pip install -r requirements.txt
-    startCommand: cd recommender && uvicorn main:app --host 0.0.0.0 --port 8001
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 8001
     envVars:
       - key: MONGODB_URI
         sync: false

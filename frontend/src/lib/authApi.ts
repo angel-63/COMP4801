@@ -81,6 +81,7 @@ export async function loginUser(credentials: LoginCredentials) {
 }
 
 export async function registerUser(profile: UserProfile, password: string) {
+  console.log(JSON.stringify(buildRegistrationPayload(profile, password)));
   const response = await fetch('/api/users/register', {
     method: 'POST',
     headers: {
@@ -119,13 +120,13 @@ function buildRegistrationPayload(profile: UserProfile, password: string) {
     location: profile.location || '',
     links: profile.links || [],
     preferences: {
-      jobFunctions: profile.preferences?.jobFunctions || [],
+      jobFunction: profile.preferences?.jobFunction || [],
       industries: profile.preferences?.industries || [],
-      employmentTypes: (profile.preferences?.employmentTypes || []).map(toEmploymentType),
-      experienceLevels: (profile.preferences?.experienceLevels || []).map(toExperienceLevel),
-      jobModes: (profile.preferences?.jobModes || []).map(toJobMode),
+      employmentType: (profile.preferences?.employmentType || []).map(toEmploymentType),
+      experienceLevel: (profile.preferences?.experienceLevel || []).map(toExperienceLevel),
+      jobMode: (profile.preferences?.jobMode || []).map(toJobMode),
       minSalary: profile.preferences?.minSalary || 0,
-      roleCategories: profile.preferences?.roleCategories || [],
+      roleCategory: profile.preferences?.roleCategory || [],
     },
     educations: (profile.education || []).map((item) => ({
       ...item,
@@ -139,15 +140,15 @@ function buildRegistrationPayload(profile: UserProfile, password: string) {
     })),
     projects: (profile.projects || []).map((item) => ({
       id: item.id,
-      projectName: item.name,
-      projectOwner: item.owner,
+      projectName: item.projectName,
+      projectOwner: item.projectOwner,
       startDate: toInstant(item.startDate),
       endDate: toInstant(item.endDate),
       location: item.location,
       description: item.description,
       technologies: item.technologies,
     })),
-    skills: (profile.skills || []).map((skill) => skill.name).filter(Boolean),
+    skills: (profile.skills || []).map((skill) => skill.skill).filter(Boolean),
   }
 }
 
@@ -166,26 +167,26 @@ function toInstant(value?: string) {
 
 function toEmploymentType(value: string) {
   const normalized = value.toLowerCase()
-  if (normalized.includes('full')) return 'FULL_TIME'
-  if (normalized.includes('part')) return 'PART_TIME'
-  if (normalized.includes('contract')) return 'CONTRACT'
-  if (normalized.includes('intern')) return 'INTERNSHIP'
-  return 'OTHER'
+  if (normalized.includes('full')) return 'fulltime'
+  if (normalized.includes('part')) return 'parttime'
+  if (normalized.includes('contract')) return 'contract'
+  if (normalized.includes('intern')) return 'internship'
+  return 'other'
 }
 
 function toExperienceLevel(value: string) {
   const normalized = value.toLowerCase()
-  if (normalized.includes('intern')) return 'INTERNSHIP'
-  if (normalized.includes('entry')) return 'ENTRY'
-  if (normalized.includes('associate')) return 'ASSOCIATE'
-  if (normalized.includes('mid')) return 'MID_SENIOR'
-  if (normalized.includes('director')) return 'DIRECTOR'
-  return 'OTHER'
+  if (normalized.includes('intern')) return 'internship'
+  if (normalized.includes('entry')) return 'entry level'
+  if (normalized.includes('associate')) return 'associate'
+  if (normalized.includes('mid')) return 'mid-senior level'
+  if (normalized.includes('director')) return 'director'
+  return 'other'
 }
 
 function toJobMode(value: string) {
   const normalized = value.toLowerCase()
-  if (normalized.includes('remote')) return 'REMOTE'
-  if (normalized.includes('hybrid')) return 'HYBRID'
-  return 'ONSITE'
+  if (normalized.includes('remote')) return 'remote'
+  if (normalized.includes('hybrid')) return 'hybrid'
+  return 'onsite'
 }

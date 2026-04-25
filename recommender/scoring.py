@@ -1,4 +1,5 @@
 from db.models.job import JobBase
+from scraper.tagging import normalise_industry
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from db.models.user import User
@@ -15,7 +16,8 @@ def relevance_score(user: User, job: JobBase) -> float:
     optional_match = len(user_skills & optional_set)
     
     skill_match_weighted = required_match * 5 + optional_match * 1
-    industry_match = len(set(user.preference_tags.industries) & set(job.company_industry))
+    user_industry_preference = set().union(*[normalise_industry(ind) for ind in user.preference_tags.industries])
+    industry_match = len(user_industry_preference & set(job.company_industry))
     function_match = len(set(user.preference_tags.job_function) & set(job.job_function))
     
     user_roles = set(user.preference_tags.role_category)
@@ -54,7 +56,10 @@ def build_user_summary(user: User) -> str:
     if user.project:
         summary.append("| Projects: ")
         for proj in user.project:
-            summary.append(f"{proj.project_name};")
+            if proj.description:
+                summary.append(f"{proj.project_name} at {proj.project_owner} with deails {proj.description};")
+            else:
+                summary.append(f"{proj.project_name} at {proj.project_owner};")
     if user.certificate:
         summary.append("| Certificates: ")
         for cert in user.certificate:

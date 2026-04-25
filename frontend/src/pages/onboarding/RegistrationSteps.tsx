@@ -45,7 +45,7 @@ type ExperienceItem = {
 
 type ProjectItem = {
   projectName: string;
-  employer: string;
+  projectOwner: string;
   startDate: string;
   endDate: string;
   location: string;
@@ -135,7 +135,7 @@ const jobFunctionGroups: { group: string; items: string[] }[] = [
     ],
   },
   {
-    group: "Technology",
+    group: "Information Technology",
     items: [
       "Software engineer",
       "Frontend developer",
@@ -182,7 +182,7 @@ const industries = [
 ];
 
 const employmentTypes = ["Internship", "Full-time", "Part-time", "Contract"];
-const experienceLevels = ["Entry level", "Associate", "Mid-senior level", "Director", "Executive"];
+const experienceLevels = ["Internship", "Entry level", "Associate", "Mid-senior level", "Director"];
 const jobModes = ["On-site", "Remote", "Hybrid"];
 const skillOptions = [
   "Microsoft Excel",
@@ -206,7 +206,7 @@ const initialFormData: FormData = {
   links: [{ label: "", url: "" }],
   educations: [{ institution: "", degree: "", startDate: "", endDate: "", fieldOfStudy: "" }],
   experiences: [{ jobTitle: "", employer: "", startDate: "", endDate: "", location: "" }],
-  projects: [{ projectName: "", employer: "", startDate: "", endDate: "", location: "" }],
+  projects: [{ projectName: "", projectOwner: "", startDate: "", endDate: "", location: "" }],
   roles: [],
   skills: [],
   industries: [],
@@ -246,7 +246,7 @@ function hasMeaningfulExperience(item: ExperienceItem) {
 }
 
 function hasMeaningfulProject(item: ProjectItem) {
-  return [item.projectName, item.employer, item.startDate, item.endDate, item.location].some(isFilled);
+  return [item.projectName, item.projectOwner, item.startDate, item.endDate, item.location].some(isFilled);
 }
 
 function isCompleteEducation(item: EducationItem) {
@@ -272,7 +272,7 @@ function isCompleteExperience(item: ExperienceItem) {
 function isCompleteProject(item: ProjectItem) {
   return (
     isFilled(item.projectName) &&
-    isFilled(item.employer) &&
+    isFilled(item.projectOwner) &&
     isFilled(item.startDate) &&
     isFilled(item.endDate) &&
     isFilled(item.location)
@@ -302,6 +302,16 @@ function cardSelectClass(selected: boolean) {
 function inputClassName() {
   return "h-11 w-full rounded bg-[#ECE8E1] px-4 text-zinc-900 outline-none";
 }
+
+const getJobFunctionsFromRoles = (roles: string[]): string[] => {
+  const roleToGroup = new Map<string, string>();
+  for (const group of jobFunctionGroups) {
+    for (const item of group.items) {
+      roleToGroup.set(item, group.group);
+    }
+  }
+  return Array.from(new Set(roles.map(role => roleToGroup.get(role)).filter((g): g is string => g !== undefined)));
+};
 
 function buildProfileSnapshot(formData: FormData, email: string): UserProfile {
   return {
@@ -343,22 +353,23 @@ function buildProfileSnapshot(formData: FormData, email: string): UserProfile {
       .filter(hasMeaningfulProject)
       .map((item, index) => ({
         id: `project-${index + 1}`,
-        name: item.projectName,
-        owner: item.employer,
+        projectName: item.projectName,
+        projectOwner: item.projectOwner,
         location: item.location,
         startDate: item.startDate,
         endDate: item.endDate,
       })),
     skills: formData.skills.map((skill, index) => ({
       id: `skill-${index + 1}`,
-      name: skill,
+      skill: skill,
     })),
     preferences: {
-      jobFunctions: formData.roles,
+      jobFunction: getJobFunctionsFromRoles(formData.roles),
+      roleCategory: formData.roles, 
       industries: formData.industries,
-      employmentTypes: formData.employmentTypes,
-      experienceLevels: formData.experienceLevels,
-      jobModes: formData.jobModes,
+      employmentType: formData.employmentTypes,
+      experienceLevel: formData.experienceLevels,
+      jobMode: formData.jobModes,
       minSalary: formData.minimumSalary,
     },
   };
@@ -430,6 +441,7 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
   useEffect(() => {
     const pendingRegistrationRaw = window.localStorage.getItem("pendingRegistration");
     const cachedProfile = getCachedUserProfile();
+    console.log("cached profile: ", cachedProfile);
     const email = getCurrentUserEmail() || cachedProfile?.email || "";
 
     let pendingRegistration: PendingRegistration = {};
@@ -448,11 +460,11 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
       lastName: pendingRegistration.lastName || cachedProfile?.lastName || prev.lastName,
       skills:
         onboardingMode === "skills"
-          ? cachedProfile?.skills?.map((item) => item.name || "").filter(Boolean) || prev.skills
+          ? cachedProfile?.skills?.map((item) => item.skill || "").filter(Boolean) || prev.skills
           : prev.skills,
       roles:
         onboardingMode === "preferences"
-          ? cachedProfile?.preferences?.jobFunctions || prev.roles
+          ? cachedProfile?.preferences?.roleCategory || prev.roles
           : prev.roles,
       industries:
         onboardingMode === "preferences"
@@ -460,15 +472,15 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
           : prev.industries,
       employmentTypes:
         onboardingMode === "preferences"
-          ? cachedProfile?.preferences?.employmentTypes || prev.employmentTypes
+          ? cachedProfile?.preferences?.employmentType || prev.employmentTypes
           : prev.employmentTypes,
       experienceLevels:
         onboardingMode === "preferences"
-          ? cachedProfile?.preferences?.experienceLevels || prev.experienceLevels
+          ? cachedProfile?.preferences?.experienceLevel || prev.experienceLevels
           : prev.experienceLevels,
       jobModes:
         onboardingMode === "preferences"
-          ? cachedProfile?.preferences?.jobModes || prev.jobModes
+          ? cachedProfile?.preferences?.jobMode || prev.jobModes
           : prev.jobModes,
       minimumSalary:
         onboardingMode === "preferences"
@@ -549,7 +561,7 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
         ...prev,
         projects: [
           ...prev.projects,
-          { projectName: "", employer: "", startDate: "", endDate: "", location: "" },
+          { projectName: "", projectOwner: "", startDate: "", endDate: "", location: "" },
         ],
       };
     });
@@ -674,6 +686,7 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
         getCachedUserProfile()?.email ||
         "";
       const profileSnapshot = buildProfileSnapshot(formData, email);
+      console.log('📤 Sending profile to backend:', profileSnapshot);
 
       window.localStorage.setItem("profile", JSON.stringify(profileSnapshot));
       window.localStorage.setItem("userProfile", JSON.stringify(profileSnapshot));
@@ -1037,9 +1050,9 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
                         <div>
                           <label className="mb-2 block text-sm">Employer</label>
                           <input
-                            value={project.employer}
+                            value={project.projectOwner}
                             onChange={(e) =>
-                              updateArrayItem<ProjectItem>("projects", index, "employer", e.target.value)
+                              updateArrayItem<ProjectItem>("projects", index, "projectOwner", e.target.value)
                             }
                             className={inputClassName()}
                             placeholder="Employer name"

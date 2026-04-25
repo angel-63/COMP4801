@@ -49,13 +49,18 @@ type RecommendedJobApiResponse = {
     maxSalary?: number | null
     applicationUrl?: string
     skillTags?: string[]
-  }
-  scores: {
-    jobId: string
-    relevanceScore: number
-    semanticScore?: number | null
-    combinedScore: number
-  }
+  },
+  relevanceScore: number
+  semanticScore?: number | null
+  combinedScore: number
+}
+
+type PaginatedRecommendations = {
+  content: RecommendedJobApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 const MAX_DOCUMENTS_PER_TYPE = 3
@@ -197,7 +202,7 @@ const MATCH_BATCH_SIZE = 10
 
 function mapRecommendationToMatchJob(item: RecommendedJobApiResponse): MatchJob {
   const job = item.job
-  const score = item.scores
+  const semanticScore = item.semanticScore
   return {
     id: job.id,
     title: job.jobTitle,
@@ -214,7 +219,7 @@ function mapRecommendationToMatchJob(item: RecommendedJobApiResponse): MatchJob 
       ...(job.skillTags || []).slice(0, 2),
     ].filter(Boolean),
     description: sanitizeJobDescription(job.jobDescription),
-    explanation: buildExplanation(job, score),
+    explanation: buildExplanation(job, semanticScore),
   }
 }
 
@@ -233,7 +238,7 @@ function formatSalary(minSalary?: number | null, maxSalary?: number | null) {
 
 function buildExplanation(
   job: RecommendedJobApiResponse['job'],
-  score: RecommendedJobApiResponse['scores'],
+  semanticScore?: RecommendedJobApiResponse['semanticScore'],
 ) {
   const explanation: string[] = []
 
@@ -257,7 +262,7 @@ function buildExplanation(
     explanation.push(`${job.employmentType} setup matches the type of roles you are targeting.`)
   }
 
-  if (typeof score.semanticScore === 'number' && score.semanticScore >= 0.35) {
+  if (typeof semanticScore === 'number' && semanticScore >= 0.35) {
     explanation.push('Your background and this job description show a strong overall fit.')
   }
 
@@ -305,6 +310,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchJob[]>([])
   const [isLoadingMatches, setIsLoadingMatches] = useState(true)
   const [isLoadingNextBatch, setIsLoadingNextBatch] = useState(false)
+  const [totalPages, setTotalPages] = useState(0);
   const [matchBatchPage, setMatchBatchPage] = useState(0)
   const [hasMoreMatches, setHasMoreMatches] = useState(true)
   const [index, setIndex] = useState(0)
@@ -337,17 +343,19 @@ export default function MatchesPage() {
       throw new Error(`Failed to load recommendations: ${response.status}`)
     }
 
-    const data = (await response.json()) as RecommendedJobApiResponse[]
-    return data.map(mapRecommendationToMatchJob)
+    const data = (await response.json()) as PaginatedRecommendations
+    const pagedMatches = data.content.map(mapRecommendationToMatchJob)
+    return { matches: pagedMatches, totalPages: data.totalPages }
   }
 
   useEffect(() => {
     const loadInitialMatches = async () => {
       try {
-        const nextMatches = await loadMatchBatch(0)
-        setMatches(nextMatches)
-        setMatchBatchPage(0)
-        setHasMoreMatches(nextMatches.length >= MATCH_BATCH_SIZE)
+        const { matches: nextMatches, totalPages: total } = await loadMatchBatch(0);
+        setMatches(nextMatches);
+        setTotalPages(total);
+        setMatchBatchPage(0);
+        setHasMoreMatches(total > 1);
         setIndex(0)
       } catch (error) {
         console.error(error)
@@ -497,18 +505,17 @@ export default function MatchesPage() {
     setIsLoadingNextBatch(true)
 
     try {
-      const nextPage = matchBatchPage + 1
-      const nextMatches = await loadMatchBatch(nextPage)
-
-      if (nextMatches.length > 0) {
-        setMatches(nextMatches)
-        setMatchBatchPage(nextPage)
-        setHasMoreMatches(nextMatches.length >= MATCH_BATCH_SIZE)
-        setIndex(0)
-        setDirection(0)
-      } else {
-        setHasMoreMatches(false)
+      const nextPage = matchBatchPage + 1;
+      if (nextPage >= totalPages) {
+        setHasMoreMatches(false);
+        return;
       }
+      const { matches: nextMatches, totalPages: newTotalPages } = await loadMatchBatch(nextPage);
+      setMatches(nextMatches);
+      setMatchBatchPage(nextPage);
+      setHasMoreMatches(nextPage + 1 < newTotalPages);
+      setIndex(0);
+      setDirection(0);
     } catch (error) {
       console.error(error)
     } finally {

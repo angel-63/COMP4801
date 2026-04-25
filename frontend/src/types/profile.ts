@@ -18,8 +18,8 @@ export type WorkExperience = {
 
 export type Project = {
   id?: string
-  name?: string
-  owner?: string
+  projectName?: string
+  projectOwner?: string
   startDate?: string
   endDate?: string
   location?: string
@@ -29,19 +29,19 @@ export type Project = {
 
 export type Skill = {
   id?: string
-  name?: string
+  skill?: string
   proficiency?: string
 }
 
 export type Preference = {
   id?: string
-  jobFunctions?: string[]
+  jobFunction?: string[]
   industries?: string[]
-  employmentTypes?: string[]
-  experienceLevels?: string[]
-  jobModes?: string[]
+  employmentType?: string[]
+  experienceLevel?: string[]
+  jobMode?: string[]
   minSalary?: number
-  roleCategories?: string[]
+  roleCategory?: string[]
 }
 
 export type Language = {

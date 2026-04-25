@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,9 +18,9 @@ public class Project {
 //    @Field("_id")
     @Id
     private String id;
-//    @Field("project_name")
+    @Field("project_name")
     private String projectName;
-//    @Field("project_owner")
+    @Field("project_owner")
     private String projectOwner;
 //    @Field("start_date")
     private Instant startDate;

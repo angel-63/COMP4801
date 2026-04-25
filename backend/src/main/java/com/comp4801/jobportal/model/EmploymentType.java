@@ -10,7 +10,6 @@ public enum EmploymentType {
     FULL_TIME("fulltime"),
     PART_TIME("parttime"),
     CONTRACT("contract"),
-    TEMPORARY("temporary"),
     INTERNSHIP("internship"),
     OTHER("other");
 

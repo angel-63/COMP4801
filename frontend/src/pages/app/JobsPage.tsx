@@ -1143,12 +1143,12 @@ function CompanyLogo({ src, alt, className, textClassName }: CompanyLogoProps) {
 
 function buildProfileTagMatcher(profile: UserProfile | null) {
   const preferences = profile?.preferences
-  const skillSet = buildNormalizedSet((profile?.skills ?? []).map((skill) => skill.name || ''))
+  const skillSet = buildNormalizedSet((profile?.skills ?? []).map((skill) => skill.skill || ''))
   const industrySet = buildNormalizedSet(preferences?.industries ?? [])
-  const jobFunctionSet = buildNormalizedSet(preferences?.jobFunctions ?? [])
-  const employmentTypeSet = buildNormalizedSet(preferences?.employmentTypes ?? [])
-  const experienceLevelSet = buildNormalizedSet(preferences?.experienceLevels ?? [])
-  const jobModeSet = buildNormalizedSet(preferences?.jobModes ?? [])
+  const jobFunctionSet = buildNormalizedSet(preferences?.jobFunction ?? [])
+  const employmentTypeSet = buildNormalizedSet(preferences?.employmentType ?? [])
+  const experienceLevelSet = buildNormalizedSet(preferences?.experienceLevel ?? [])
+  const jobModeSet = buildNormalizedSet(preferences?.jobMode ?? [])
 
   return {
     matchesSkill: (value?: string) => skillSet.has(normalizeProfileTag(value)),

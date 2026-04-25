@@ -1,6 +1,7 @@
 package com.comp4801.jobportal.controller;
 
 import com.comp4801.jobportal.dto.JobResponse;
+import com.comp4801.jobportal.dto.PaginatedRecommendations;
 import com.comp4801.jobportal.dto.RecommendationResultResponse;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.services.JobService;
@@ -21,12 +22,6 @@ import java.util.List;
 public class JobController {
     @Autowired
     private JobService jobService;
-//    private final RecommendationService recommendationService;
-
-//    public JobController(JobService jobService, RecommendationService recommendationService) {
-//        this.jobService = jobService;
-//        this.recommendationService = recommendationService;
-//    }
 
     @GetMapping()
     public ResponseEntity<PagedModel<JobResponse>> searchJobs(
@@ -65,10 +60,19 @@ public class JobController {
     }
 
     @GetMapping("/recommendations")
-    public ResponseEntity<List<RecommendationResultResponse>> getRecommendations(
+    public ResponseEntity<PaginatedRecommendations> getRecommendations(
             @AuthenticationPrincipal(expression = "username") String id,
-            @RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.substring(7);
-        return ResponseEntity.ok(jobService.recommendJobsForUser(id, token));
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        String token = authHeader.substring(7).trim();
+        return ResponseEntity.ok(jobService.getPaginatedRecommendations(id, token, page, size));
     }
+//    public ResponseEntity<List<RecommendationResultResponse>> getRecommendations(
+//            @AuthenticationPrincipal(expression = "username") String id,
+//            @RequestHeader("Authorization") String authHeader) {
+//        String token = authHeader.substring(7);
+//        return ResponseEntity.ok(jobService.recommendJobsForUser(id, token));
+//    }
 }
