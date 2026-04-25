@@ -438,6 +438,38 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
   const isLastStep = currentStepIndex === steps.length - 1;
   const isSkippableStep = optionalSteps.includes(currentStep);
 
+  function buildprofileSnapshot(formData: FormData, email: string) {
+    if (onboardingMode === 'skills') {
+      // only update skills
+      return {
+        id: getCurrentUserId(),
+        email,
+        skills: formData.skills.map((skill, index) => ({
+          id: `skill-${index + 1}`,
+          skill: skill,
+        })),
+      };
+    }
+    if (onboardingMode === 'preferences') {
+      // only update preferences
+      return {
+        id: getCurrentUserId(),
+        email,
+        preferences: {
+          jobFunction: getJobFunctionsFromRoles(formData.roles),
+          roleCategory: formData.roles,
+          industries: formData.industries,
+          employmentType: formData.employmentTypes,
+          experienceLevel: formData.experienceLevels,
+          jobMode: formData.jobModes,
+          minSalary: formData.minimumSalary,
+        },
+      };
+    }
+    // send complete form if is new user registration
+    return buildProfileSnapshot(formData, email);
+  }
+
   useEffect(() => {
     const pendingRegistrationRaw = window.localStorage.getItem("pendingRegistration");
     const cachedProfile = getCachedUserProfile();
@@ -685,8 +717,9 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
         window.localStorage.getItem("pendingRegistrationEmail") ||
         getCachedUserProfile()?.email ||
         "";
-      const profileSnapshot = buildProfileSnapshot(formData, email);
-      console.log('📤 Sending profile to backend:', profileSnapshot);
+      const existingProfile = getCachedUserProfile();
+      const profileSnapshot = buildprofileSnapshot(formData, email);
+      console.log('Creating newest profile snapshot for cache and to backend:', profileSnapshot);
 
       window.localStorage.setItem("profile", JSON.stringify(profileSnapshot));
       window.localStorage.setItem("userProfile", JSON.stringify(profileSnapshot));
@@ -697,7 +730,9 @@ export default function FlashRegistrationWizard({ onSubmit }: RegistrationWizard
         await registerUser(profileSnapshot, pendingRegistration.password);
       } else {
         try {
-          await saveUserProfile(getCurrentUserId(), profileSnapshot);
+          const fullProfile = existingProfile;
+          const merged = { ...fullProfile, ...profileSnapshot };
+          await saveUserProfile(getCurrentUserId(), merged);
         } catch (saveError) {
           console.warn("Profile save fell back to local cache during onboarding.", saveError);
         }

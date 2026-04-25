@@ -1,10 +1,12 @@
 package com.comp4801.jobportal.services;
 
+import com.comp4801.jobportal.dto.PaginatedRecommendations;
 import com.comp4801.jobportal.dto.RecommendationResultResponse;
 import com.comp4801.jobportal.model.Job;
 import com.comp4801.jobportal.model.User;
 import com.comp4801.jobportal.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class JobService {
@@ -102,9 +105,26 @@ public class JobService {
         return fetchAndCacheRecommendations(id, ttl);
     }
 
+    public PaginatedRecommendations getPaginatedRecommendations(String id, String token, int page, int size) {
+        // full list from redis or recommender engine
+        List<RecommendationResultResponse> all = recommendJobsForUser(id, token);
+
+        int totalRecords = all.size();
+        int totalPages = (int) Math.ceil((double) totalRecords / size);
+        
+        int adjustedPage = Math.max(0, Math.min(page, totalPages - 1));
+        int start = adjustedPage * size;
+        int end = Math.min(start + size, totalRecords);
+
+        List<RecommendationResultResponse> content = (start < end) ? all.subList(start, end) : List.of();
+
+        return new PaginatedRecommendations(content, adjustedPage, size, totalRecords, totalPages);
+    }
+
     public List<RecommendationResultResponse> fetchAndCacheRecommendations(String id, long ttl) {
         User profile = userService.getUserById(id);
         List<RecommendationResultResponse> results = recommendationClient.getRecommendations(profile);
+        log.info(results.get(0).toString());
         String cacheKey = REC_CACHE_PREFIX + id;
         redisTemplate.opsForValue().set(cacheKey, results, ttl, TimeUnit.SECONDS);
         return results;

@@ -3,6 +3,7 @@ package com.comp4801.jobportal.services;
 import com.comp4801.jobportal.dto.RecommendationResultResponse;
 import com.comp4801.jobportal.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -21,12 +22,15 @@ public class RecommendationClient {
 
     private final RestTemplate restTemplate;
     private final String recommenderUrl;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public RecommendationClient(RestTemplate restTemplate,
-                                @Value("${recommender.url}") String recommenderUrl) {
+                                @Value("${recommender.url}") String recommenderUrl, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.recommenderUrl = recommenderUrl;
+        this.objectMapper = objectMapper;
+        objectMapper.registerModule(new JavaTimeModule());
+
     }
 
     public List<RecommendationResultResponse> getRecommendations(User user) {

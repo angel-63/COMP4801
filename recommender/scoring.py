@@ -17,7 +17,7 @@ def relevance_score(user: User, job: JobBase) -> float:
     
     skill_match_weighted = required_match * 5 + optional_match * 1
     user_industry_preference = set().union(*[normalise_industry(ind) for ind in user.preference_tags.industries])
-    industry_match = len(user_industry_preference & set(job.company_industry))
+    industry_match = len(user_industry_preference & set(job.company_industry) if job.company_industry else set())
     function_match = len(set(user.preference_tags.job_function) & set(job.job_function))
     
     user_roles = set(user.preference_tags.role_category)

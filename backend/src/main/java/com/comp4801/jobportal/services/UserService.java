@@ -31,41 +31,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
-        // convert List<String> skills to List<Skill> with proficiency null
-        List<Skill> skillEntities = request.getSkills().stream()
-                .map(skillName -> {
-                    Skill skill = new Skill();
-                    skill.setSkill(skillName);
-                    skill.setProficiency(null);
-                    return skill;
-                })
-                .toList();
-
-        // set objectId for subdocuments
-        // Ensure IDs on all nested objects
-        if (request.getLinks() != null) {
-            request.getLinks().forEach(link -> {
-                if (link.getId() == null) link.setId(new ObjectId().toString());
-            });
-        }
-        if (request.getEducations() != null) {
-            request.getEducations().forEach(edu -> {
-                if (edu.getId() == null) edu.setId(new ObjectId().toString());
-            });
-        }
-        if (request.getExperiences() != null) {
-            request.getExperiences().forEach(exp -> {
-                if (exp.getId() == null) exp.setId(new ObjectId().toString());
-            });
-        }
-        if (request.getProjects() != null) {
-            request.getProjects().forEach(proj -> {
-                if (proj.getId() == null) proj.setId(new ObjectId().toString());
-            });
-        }
-        if (request.getPreferences() != null) {
-            request.getPreferences().setId(new ObjectId().toString());
-        }
+        request.getPreferences().setId(new ObjectId().toString());
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -75,7 +41,7 @@ public class UserService {
                 .phone(request.getPhone())
                 .location(request.getLocation())
                 .preferenceTags(request.getPreferences())
-                .skillTags(skillEntities)
+                .skillTags(request.getSkills())
                 .links(request.getLinks() != null ? request.getLinks() : new ArrayList<>())
                 .education(request.getEducations() != null ? request.getEducations() : new ArrayList<>())
                 .workExperience(request.getExperiences() != null ? request.getExperiences() : new ArrayList<>())
@@ -107,6 +73,8 @@ public class UserService {
     public User saveUser(String id, User user) {
         User existingUser = getUserById(id);
         user.setId(id);
+        user.setPassword(existingUser.getPassword());
+        user.getPreferenceTags().setId(existingUser.getPreferenceTags().getId());
         if (user.getSavedJobs() == null) {
             user.setSavedJobs(existingUser.getSavedJobs());
         } else {

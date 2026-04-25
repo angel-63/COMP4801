@@ -15,8 +15,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 public class Skill {
 //    @Field("_id")
     @Id
-    @Builder.Default
-    private String id = new ObjectId().toString();
+    private String id;
 //    @Field("skill")
     private String skill;
     private String proficiency;

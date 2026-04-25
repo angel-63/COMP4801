@@ -148,7 +148,10 @@ function buildRegistrationPayload(profile: UserProfile, password: string) {
       description: item.description,
       technologies: item.technologies,
     })),
-    skills: (profile.skills || []).map((skill) => skill.skill).filter(Boolean),
+    skills: (profile.skills || []).map((skill) => ({
+      id: skill.id,
+      skill: skill.skill,
+    })).filter(Boolean),
   }
 }
 

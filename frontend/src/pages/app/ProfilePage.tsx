@@ -165,6 +165,7 @@ export default function ProfilePage() {
         await syncSavedJobs()
       } catch (loadError) {
         const cached = getCachedUserProfile()
+        // console.log("cached profile @ profile page: ", cached)
         if (cached) {
           setProfile(cached)
           setDrafts(buildDrafts(cached))

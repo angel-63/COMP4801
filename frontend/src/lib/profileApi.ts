@@ -78,6 +78,7 @@ export async function saveUserProfile(userId: string, profile: UserProfile) {
 
 export function getCachedUserProfile() {
   const rawValue = window.localStorage.getItem(USER_PROFILE_STORAGE_KEY)
+  // console.log("raw value of user profile: ", rawValue)
   if (!rawValue) return null
 
   try {

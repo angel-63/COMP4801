@@ -44,5 +44,5 @@ public class RegistrationRequest {
     private List<Project> projects;
 
 //    @NotNull
-    private List<String> skills; // convert in UserService to List<Skill> by setting proficiency to null
+    private List<Skill> skills;
 }
